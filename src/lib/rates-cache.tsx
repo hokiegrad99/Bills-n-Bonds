@@ -15,13 +15,19 @@ import {
   fetchRecentAuctions,
 } from './treasury-api';
 
-// Bumped from v1 → v2 when fetchRecentAuctions started including future
-// auctions (instead of just past). Old v1 caches only contain past rows,
-// which would silently leave the Upcoming tab empty for users with stale
-// localStorage state for up to 6 hours.
-const RATES_KEY = 'bnb.rates.v2';
+// Bumped v2 → v3 when the auctions-suppression rule for the
+// ApiFallbackBanner was introduced. Older caches don't carry the new
+// `syntheticFeeds` field, so re-reading them after the upgrade can
+// re-introduce a false-positive `isSynthetic: true` banner state. v3
+// ignores v2 entirely — users with a v2 entry get a fresh fetch on
+// hydration. The v1 → v3 `yieldByTermOverrides` migration is preserved
+// so veteran users don't lose their manual yield entries.
+const RATES_KEY = 'bnb.rates.v3';
 // Previous-key so we can migrate user-set yield overrides forward when
-// bumping the cache version.
+// bumping the cache version. We deliberately do NOT migrate from v2
+// because v2 stored `isSynthetic: true` derived under the OLD banner
+// logic (`rates.isSynthetic = anyFeedSynth`) and would immediately
+// re-trigger the banner.
 const LEGACY_RATES_KEY = 'bnb.rates.v1';
 const CACHE_TTL_MS = 1000 * 60 * 60 * 6; // 6 hours
 /** Retry sooner after transient failures — 30 seconds. */
@@ -59,7 +65,7 @@ export function RatesProvider({ children }: { children: React.ReactNode }) {
     } catch {
       base = emptyRates;
     }
-    // One-time v1→v2 migration. Synchronous so it cannot race with a
+    // One-time v1→v3 migration. Synchronous so it cannot race with a
     // user's immediate `setYieldOverride` interaction (which would
     // otherwise land in `base` first then be clobbered by a delayed
     // migration effect). Carry forward only `yieldByTermOverrides` —

@@ -1,12 +1,23 @@
-import { AlertTriangle, RefreshCcw, KeyRound, WifiOff, ServerCrash } from 'lucide-react';
+import { AlertTriangle, KeyRound, WifiOff, ServerCrash } from 'lucide-react';
 import { useRates } from '../../lib/rates-cache';
 import { cn } from '../../lib/cn';
 import type { FetchErrorKind } from '../../lib/types';
 
 /**
- * Global banner that surfaces whenever `rates.isSynthetic === true`.
- * Renders nothing otherwise. Lives in AppShell so every routed page
- * inherits the same disclaimer without per-page wiring.
+ * Global banner that surfaces whenever `rates.isSynthetic === true` AND
+ * at least one non-auctions feed is synthetic. Renders nothing otherwise.
+ * Lives in AppShell so every routed page inherits the same disclaimer
+ * without per-page wiring.
+ *
+ * As of 2026-07-03 the auctions feed is permanently disabled
+ * (Cloudflare↔Treasury SSL + missing ACAO on Treasury's API). The
+ * `syntheticFeeds.every(f === 'auctions')` rule below keeps the banner
+ * silent for that case so users aren't nagged on every refresh.
+ *
+ * The previous "Retry live fetch" button was removed in the same
+ * commit: with the auctions fetch permanently disabled there's no
+ * point for end-users to manually retry. Auto-refresh still runs on
+ * the 6-hour cycle in `rates-cache.tsx`.
  *
  * Shows different guidance depending on the error kind:
  * - `no-api-key`  → instructions to add VITE_FRED_API_KEY
@@ -15,12 +26,11 @@ import type { FetchErrorKind } from '../../lib/types';
  * - `permanent`   → generic fallback
  */
 export function ApiFallbackBanner() {
-  const { rates, loading, refresh } = useRates();
+  const { rates } = useRates();
   if (!rates.isSynthetic) return null;
 
-  // Defensive: even if a future caller sets isSynthetic=true with only
-  // the auctions feed in syntheticFeeds, suppress the banner here too.
-  // The auctions feed is permanently synthetic (see fetchRecentAuctions
+  // Suppress the banner when ONLY the auctions feed is synthetic. The
+  // auctions feed is permanently synthetic (see fetchRecentAuctions
   // TSDoc) and surfacing it on every refresh was user-disruptive.
   const synth = rates.syntheticFeeds ?? [];
   if (synth.length > 0 && synth.every((f) => f === 'auctions')) return null;
@@ -48,22 +58,6 @@ export function ApiFallbackBanner() {
       <div className="flex-1 min-w-0 text-sm leading-snug">
         <ErrorMessage kind={kind} reason={rates.fallbackReason} />
       </div>
-      {kind !== 'no-api-key' && (
-        <button
-          type="button"
-          onClick={refresh}
-          disabled={loading}
-          className={cn(
-            'inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded',
-            'bg-black/5 hover:bg-black/10 dark:bg-white/10 dark:hover:bg-white/20',
-            'disabled:opacity-50 disabled:cursor-not-allowed',
-            'transition-colors',
-          )}
-        >
-          <RefreshCcw size={12} className={loading ? 'animate-spin' : ''} />
-          {loading ? 'Retrying…' : 'Retry live fetch'}
-        </button>
-      )}
     </div>
   );
 }
@@ -124,10 +118,10 @@ function ErrorMessage({ kind, reason }: { kind: FetchErrorKind | undefined; reas
     default:
       return (
         <>
-          <strong>Some Treasury data is modeled.</strong>{' '}
-          Yield curves are sourced from the St. Louis Fed (FRED) when
-          available; auction data is fetched live from Treasury when
-          available.{' '}
+          <strong>Live yield-curve data is unavailable.</strong>{' '}
+          The FRED-sourced nominal and TIPS yield curves are feeding from
+          modeled reference values (auction data is always modeled as of
+          2026-07-03 while Treasury's CORS policy is blocked).{' '}
           <em>Not safe for trading or tax-related decisions.</em>
           {reason && (
             <div className="mt-1.5 font-mono text-xs opacity-80 break-words">
