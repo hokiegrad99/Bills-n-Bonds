@@ -8,11 +8,27 @@ interface SavingsBondsTableProps {
   bonds: SavingsBond[];
   onEdit: (b: SavingsBond) => void;
   onDelete: (b: SavingsBond) => void;
+  /**
+   * Multi-select state for the bulk-delete flow. The page owns the Set
+   * so it can also render the page-level "Select all" + "Delete N
+   * selected" affordances without re-lifting state. Pass an empty Set
+   * (or omit via the optional default) to keep the table in single-row
+   * mode without checkboxes.
+   */
+  selectedIds?: Set<string>;
+  onToggleSelect?: (id: string) => void;
 }
 
 type SortKey = 'registration' | 'issueDate' | 'interestRate' | 'amount' | 'currentValue' | 'status';
 
-export function SavingsBondsTable({ bonds, onEdit, onDelete }: SavingsBondsTableProps) {
+export function SavingsBondsTable({
+  bonds,
+  onEdit,
+  onDelete,
+  selectedIds,
+  onToggleSelect,
+}: SavingsBondsTableProps) {
+  const selectionEnabled = selectedIds != null && onToggleSelect != null;
   const [sort, setSort] = useState<{ key: SortKey; dir: 'asc' | 'desc' }>({
     key: 'issueDate',
     dir: 'asc',
@@ -40,6 +56,11 @@ export function SavingsBondsTable({ bonds, onEdit, onDelete }: SavingsBondsTable
       <table className="table">
         <thead>
           <tr>
+            {selectionEnabled && (
+              <th className="px-2 py-2 w-8" aria-label="Select">
+                <span className="sr-only">Select</span>
+              </th>
+            )}
             <Th label="Registration" k="registration" sort={sort} setSort={setSort} />
             <Th label="Confirm #" k="registration" sort={null} setSort={null} className="hidden md:table-cell" />
             <Th label="Issue Date" k="issueDate" sort={sort} setSort={setSort} />
@@ -52,7 +73,28 @@ export function SavingsBondsTable({ bonds, onEdit, onDelete }: SavingsBondsTable
         </thead>
         <tbody>
           {sorted.map((b) => (
-            <tr key={b.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+            <tr
+              key={b.id}
+              className={
+                selectionEnabled && selectedIds!.has(b.id)
+                  ? // Highlight selected rows so the user can see the
+                    // multi-select state at a glance without scanning
+                    // every checkbox.
+                    'bg-brand-50/50 dark:bg-brand-900/20 hover:bg-brand-50 dark:hover:bg-brand-900/30'
+                  : 'hover:bg-slate-50 dark:hover:bg-slate-800/50'
+              }
+            >
+              {selectionEnabled && (
+                <td className="px-2 py-2">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 rounded accent-brand-600 cursor-pointer"
+                    checked={selectedIds!.has(b.id)}
+                    onChange={() => onToggleSelect!(b.id)}
+                    aria-label={`Select bond for ${b.registration}`}
+                  />
+                </td>
+              )}
               <td className="font-medium">{b.registration}</td>
               <td className="hidden md:table-cell font-mono text-[11px] text-slate-500 dark:text-slate-400">
                 {b.confirmNumber ?? '—'}
@@ -83,7 +125,7 @@ export function SavingsBondsTable({ bonds, onEdit, onDelete }: SavingsBondsTable
         </tbody>
         <tfoot>
           <tr className="bg-slate-50 dark:bg-slate-900/60 font-semibold">
-            <td colSpan={5} className="px-3 py-2">
+            <td colSpan={selectionEnabled ? 6 : 5} className="px-3 py-2">
               Subtotal ({sorted.length} bond{sorted.length === 1 ? '' : 's'})
             </td>
             <td className="px-3 py-2 text-right tabular-nums">{fmtUSD(totalAmount)}</td>

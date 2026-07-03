@@ -27,6 +27,12 @@ interface SavingsBondsContextValue {
   addSavingsBond: (b: SavingsBondDraft) => SavingsBond;
   updateSavingsBond: (id: string, patch: Partial<SavingsBond>) => void;
   deleteSavingsBond: (id: string) => void;
+  /**
+   * Bulk delete — used by the multi-select "Delete N selected" flow on
+   * the Savings Bonds page. Single batch setState (not N individual
+   * deletes) so the user sees one consistent re-render.
+   */
+  deleteSavingsBonds: (ids: string[]) => void;
   importSavingsBonds: (rows: SavingsBondDraft[]) => number;
   replaceAllSavingsBonds: (rows: SavingsBond[]) => void;
   clearAll: () => void;
@@ -70,6 +76,16 @@ export function SavingsBondsProvider({ children }: { children: React.ReactNode }
     setSavingsBonds((bs) => bs.filter((b) => b.id !== id));
   }, []);
 
+  const deleteSavingsBonds: SavingsBondsContextValue['deleteSavingsBonds'] = useCallback(
+    (ids) => {
+      if (ids.length === 0) return;
+      // Build a Set once so the O(N*M) .filter lookup stays O(N+M).
+      const idSet = new Set(ids);
+      setSavingsBonds((bs) => bs.filter((b) => !idSet.has(b.id)));
+    },
+    [],
+  );
+
   const importSavingsBonds: SavingsBondsContextValue['importSavingsBonds'] = useCallback(
     (rows) => {
       const now = new Date().toISOString();
@@ -100,6 +116,7 @@ export function SavingsBondsProvider({ children }: { children: React.ReactNode }
       addSavingsBond,
       updateSavingsBond,
       deleteSavingsBond,
+      deleteSavingsBonds,
       importSavingsBonds,
       replaceAllSavingsBonds,
       clearAll,
@@ -109,6 +126,7 @@ export function SavingsBondsProvider({ children }: { children: React.ReactNode }
       addSavingsBond,
       updateSavingsBond,
       deleteSavingsBond,
+      deleteSavingsBonds,
       importSavingsBonds,
       replaceAllSavingsBonds,
       clearAll,

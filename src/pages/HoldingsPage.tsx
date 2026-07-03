@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Download, FilePlus2, FileUp, Search, Trash2, Upload, Save } from 'lucide-react';
 import { useHoldings } from '../lib/storage';
+import { useBackup } from '../lib/backup';
 import type { Holding, SecurityType } from '../lib/types';
 import { SECURITY_TYPES } from '../lib/types';
 import { HoldingForm } from '../components/holdings/HoldingForm';
@@ -24,9 +25,10 @@ export function HoldingsPage() {
     updateHolding,
     deleteHolding,
     importHoldings,
-    exportBackup,
-    importBackup,
   } = useHoldings();
+  // Backup I/O now spans BOTH holdings and savingsBonds (v2 backup
+  // format). The hook is the single source of truth for export/import.
+  const { exportBackup, importBackup } = useBackup();
   const { toast } = useToast();
 
   const [editing, setEditing] = useState<Holding | null>(null);
@@ -105,7 +107,21 @@ export function HoldingsPage() {
     a.click();
     URL.revokeObjectURL(url);
   }  function handleImportBackup() {
-    if (holdings.length > 0 && !window.confirm('Restoring a backup will replace all current holdings. Continue?')) return;
+    // Confirm copy mentions savingsBonds explicitly so the user
+    // understands the full scope of a restore. v1 backups (no
+    // savingsBonds field) will not touch the user's current
+    // savingsBonds; v2 backups (field present) will replace them
+    // with the backup's snapshot. See `useBackup.importBackup`.
+    // A fresh install (no holdings) skips the confirm since there's
+    // nothing to lose — the file picker opens immediately.
+    if (
+      holdings.length > 0 &&
+      !window.confirm(
+        'Restoring a backup will replace all current holdings, plus any savings bonds the backup contains. Continue?',
+      )
+    ) {
+      return;
+    }
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = '.json';

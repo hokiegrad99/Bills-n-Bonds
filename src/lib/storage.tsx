@@ -47,10 +47,9 @@ interface HoldingsContextValue {
   replaceAllHoldings: (rows: Holding[]) => void;
   clearAll: () => void;
   resetSample: () => void;
-  /** Export all holdings + settings as a JSON string for backup. */
-  exportBackup: () => string;
-  /** Restore holdings + settings from a JSON backup string. Returns true on success. */
-  importBackup: (json: string) => boolean;
+  // Backup I/O was moved to the `useBackup()` hook in ./backup so the
+  // single restore covers BOTH holdings and savingsBonds. Callers that
+  // need a JSON export/import should import `useBackup` instead.
 }
 
 const HoldingsContext = createContext<HoldingsContextValue | null>(null);
@@ -139,22 +138,6 @@ export function HoldingsProvider({ children }: { children: React.ReactNode }) {
     location.reload();
   }, []);
 
-  const exportBackup = useCallback(() => {
-    return JSON.stringify({ version: 1, holdings, settings }, null, 2);
-  }, [holdings, settings]);
-
-  const importBackup = useCallback((json: string): boolean => {
-    try {
-      const parsed = JSON.parse(json);
-      if (!parsed || !Array.isArray(parsed.holdings)) return false;
-      setHoldings(parsed.holdings);
-      if (parsed.settings) setSettingsState((s) => ({ ...s, ...parsed.settings }));
-      return true;
-    } catch {
-      return false;
-    }
-  }, []);
-
   const value = useMemo<HoldingsContextValue>(
     () => ({
       holdings,
@@ -167,8 +150,6 @@ export function HoldingsProvider({ children }: { children: React.ReactNode }) {
       replaceAllHoldings,
       clearAll,
       resetSample,
-      exportBackup,
-      importBackup,
     }),
     [
       holdings,
@@ -181,8 +162,6 @@ export function HoldingsProvider({ children }: { children: React.ReactNode }) {
       replaceAllHoldings,
       clearAll,
       resetSample,
-      exportBackup,
-      importBackup,
     ],
   );
 
