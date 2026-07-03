@@ -1,0 +1,3 @@
+curl: (3) bad range in URL position 120:
+https://api.fiscaldata.treasury.gov/services/api/fiscal_service/v2/accounting/od/auction_query?sort=-auction_date&page[size]=5
+                                                                                                                       ^

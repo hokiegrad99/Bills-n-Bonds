@@ -1,0 +1,7 @@
+name = "bills-n-bonds-cors-proxy"
+main = "src/index.ts"
+compatibility_date = "2024-09-01"
+
+# Optional: pin to free tier; remove `placement` to accept the default region.
+[placement]
+mode = "smart"

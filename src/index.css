@@ -1,0 +1,113 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+  html.dark {
+    color-scheme: dark;
+  }
+  html, body, #root {
+    height: 100%;
+  }
+  body {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-feature-settings: 'cv11', 'ss01';
+  }
+  /* Tighter heading scale for a "Bloomberg-terminal-but-friendly" feel */
+  h1 { @apply text-2xl font-semibold tracking-tight; }
+  h2 { @apply text-xl font-semibold tracking-tight; }
+  h3 { @apply text-lg font-semibold tracking-tight; }
+  /* Scrollbar refinement (WebKit) */
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-slate-300 dark:bg-slate-700 rounded-full;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-slate-400 dark:bg-slate-600;
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-xl border bg-white border-slate-200 shadow-card
+           dark:bg-slate-900 dark:border-slate-800 dark:shadow-card-dark;
+  }
+  .card-hover {
+    @apply transition-shadow hover:shadow-lg dark:hover:shadow-black/40;
+  }
+  .label-eyebrow {
+    @apply text-[11px] font-semibold uppercase tracking-wider
+           text-slate-500 dark:text-slate-400;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-md
+           text-sm font-medium px-3 py-2 transition
+           focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500
+           focus-visible:ring-offset-2 focus-visible:ring-offset-white
+           dark:focus-visible:ring-offset-slate-950
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-primary {
+    @apply btn bg-brand-600 text-white hover:bg-brand-700 active:bg-brand-800
+           dark:bg-brand-500 dark:hover:bg-brand-400;
+  }
+  .btn-secondary {
+    @apply btn bg-slate-100 text-slate-900 hover:bg-slate-200
+           dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700;
+  }
+  .btn-ghost {
+    @apply btn bg-transparent text-slate-700 hover:bg-slate-100
+           dark:text-slate-200 dark:hover:bg-slate-800;
+  }
+  .btn-danger {
+    @apply btn bg-red-600 text-white hover:bg-red-700;
+  }
+  .input {
+    @apply w-full rounded-md border bg-white px-3 py-2 text-sm text-slate-900
+           placeholder:text-slate-400 border-slate-300
+           focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 focus:outline-none
+           dark:bg-slate-900 dark:text-slate-100 dark:border-slate-700
+           dark:placeholder:text-slate-500;
+  }
+  .select {
+    @apply input pr-8 appearance-none bg-no-repeat bg-right;
+  }
+  .table {
+    @apply min-w-full text-sm;
+  }
+  .table thead {
+    @apply text-left;
+  }
+  .table th {
+    @apply px-3 py-2 text-[11px] font-semibold uppercase tracking-wider
+           text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-900/60
+           border-b border-slate-200 dark:border-slate-800;
+  }
+  .table td {
+    @apply px-3 py-2 border-b border-slate-100 dark:border-slate-800/70;
+  }
+  .badge {
+    @apply inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px]
+           font-medium ring-1 ring-inset;
+  }
+  .pill-tab {
+    @apply inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm
+           font-medium text-slate-600 hover:bg-slate-100
+           dark:text-slate-300 dark:hover:bg-slate-800 cursor-pointer
+           transition select-none;
+  }
+  .pill-tab-active {
+    @apply bg-brand-600 text-white hover:bg-brand-700
+           dark:bg-brand-500 dark:hover:bg-brand-400;
+  }
+  .grid-bg {
+    @apply bg-grid-light dark:bg-grid-dark;
+  }
+}

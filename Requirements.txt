@@ -1,0 +1,50 @@
+Build a professional site for entering and tracking US Treasury Bills and Bonds or CDs. This site should be able to run for free on GitHub or similar. Users will store and backup any of their data locally or client side. The user will be able to toggle between dark/light modes. The theme/interface needs to have a professional finiancial feel and be well organized for users. 
+
+The site should have these pages:
+Dashboard
+My Holdings
+Auction Calendar
+Ladder Planner
+Yield Analytics
+Research
+Reports
+
+The Dashboard page should display several tiles or KPIs providing a summary of my portfolio, recent and upcoming transactions, and interactive charts. Things to include:
+Total Face Value
+Interst Earned (Current Month, Current Year, Total)
+Active Holdings
+Next Maturity
+Upcoming Maturities
+Portfolio by Term
+Scheduled Purchases/Renewals
+My Holdings (By Term, By Type)
+
+The My Holdings page should display all holdings and hide matured holdings by default (checkbox for user to toggle). The user should be able to Import and Export their holdings in CSV format. When import is selected, provide a sample CSV for expected format. 
+Fields for the New Holdings:
+Security Type (Bill, Note, Bond, TIPS, CD)
+Institution (US Treasury, Bank Name, ETC)
+Term
+Confirm #
+CUSIP
+Purchase Date
+Maturity Date
+Face Value
+Purchase Price
+High Rate / Yield
+Interest Earned
+Tax Year
+State Tax Exempt?
+Status
+Auto-Reinvest at Maturity?
+Notes
+
+The Auction Calendar page should pull from the US Treasury API. User would be able to select either Upcoming Auctions or Recent Results and then filter by Security Type. Security Type results should be clearly marked with separate color or icon (Bill, Note, Bond, TIPS, etc) so the user can quickly distingush between the types.
+
+The Ladder Planner page should provide the user with useful information such expected cash flow from maturing holdings, a maturity calendar with upcoming maturity dates marked by type and term, and a Bond/Bill Ladder tool to assist the user plan out a laddering strategy. The Ladder tool should generate suggested holding types and terms to stagger to provide a monthly cash flow while trying to maximize the Rate/Yield. The Yield should try to be pulled from the US Treasury API by holding term/type, but can be edited by the user. Used cached rate/yield information from the last API pull but there should be a refresh button the user can click.
+
+The Yield Analytics page should provide information about the user's current holdings such as total holdings and value, total number of matured holdings, total interest earned, and average rate of return for active and matured holdings. The page should also display Yield Trends by Security based on recent US Treasury auctions and a chart listing US Treasuries (source: https://www.cnbc.com/markets/us-treasurys/).
+
+The Research page should include Tield Curve anaylis, Fed Outlook including like Inflation (CPI) and other key indicators, Expert Recommendations and news related to US Securities and market/rate outlook, and a chart for Treasury ETF Risk-Reward (https://streetstats.finance/rates/treasury-ETF-risk-reward). 
+
+The Reports page should be able to export reports in either CSV or PDF formats. The user can choose a Stadard report and filter on arious fields, or they can select a Tax Summary report that can assist them for income tax planning for the year they select.
+ 

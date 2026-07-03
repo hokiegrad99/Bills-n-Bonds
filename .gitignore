@@ -1,0 +1,24 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Editor
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+
+# Environment (API keys)
+.env
+.env.local
+.env.*.local
+
+# Build
+dist
+dist-ssr
+*.local
+
+# Dependencies
+node_modules
