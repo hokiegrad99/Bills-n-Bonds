@@ -3,16 +3,16 @@
 export type SecurityType = 'Bill' | 'Note' | 'Bond' | 'TIPS' | 'CD';
 
 /**
- * Categorizes a data-fetching error so the UI can show context-aware guidance.
- *
- * - `transient`  : 5xx server error or network timeout — worth retrying.
- * - `permanent`  : 4xx client error — retrying won't help.
- * - `network`    : fetch itself threw (DNS failure, CORS block, offline).
- * - `no-api-key` : FRED returned 400 and the URL has no `api_key=` param.
+ * Lifecycle of a holding on the Holdings page.
+ * - `Active`  — outstanding, maturity date is more than 7 days out.
+ * - `Pending` — effective within 7 days of maturity (or explicitly set).
+ * - `Matured` — maturity date is in the past (or status was set).
+ * - `Sold`    — principal has been returned to the user.
  */
-export type FetchErrorKind = 'transient' | 'permanent' | 'network' | 'no-api-key';
+export type HoldingStatus = 'Active' | 'Matured' | 'Pending' | 'Sold';
 
 export const SECURITY_TYPES: SecurityType[] = ['Bill', 'Note', 'Bond', 'TIPS', 'CD'];
+export const HOLDING_STATUSES: HoldingStatus[] = ['Active', 'Matured', 'Pending', 'Sold'];
 
 export const SECURITY_TYPE_META: Record<
   SecurityType,
@@ -60,10 +60,6 @@ export const SECURITY_TYPE_META: Record<
   },
 };
 
-export type HoldingStatus = 'Active' | 'Matured' | 'Pending' | 'Sold';
-
-export const HOLDING_STATUSES: HoldingStatus[] = ['Active', 'Matured', 'Pending', 'Sold'];
-
 export interface Holding {
   id: string;
   securityType: SecurityType;
@@ -88,55 +84,6 @@ export interface Holding {
   updatedAt: string;
 }
 
-// ---------- US Treasury API shapes ----------
-
-/** Shape of an item from `/accounting/od/auction_query`. */
-export interface TreasuryAuction {
-  auction_date: string;
-  issue_date?: string;
-  maturity_date?: string;
-  cusip?: string;
-  security_type?: string; // "Bill", "Note", "Bond", "TIPS", "CMB", etc.
-  security_term?: string; // e.g. "4-Week", "30-Year"
-  t_bill_or_bond?: string;
-  average_median_yield?: string;
-  average_median_award_yield?: string;
-  high_yield?: string;
-  high_discount_rate?: string;
-  high_investment_rate?: string;
-  total_tendered?: string;
-  total_accepted?: string;
-  [k: string]: unknown;
-}
-
-/** Shape of an item from `/tvmt/yield_curve` (nominal). */
-export interface YieldCurvePoint {
-  new_date: string;
-  bc_1month?: string;
-  bc_2month?: string;
-  bc_3month?: string;
-  bc_6month?: string;
-  bc_1year?: string;
-  bc_2year?: string;
-  bc_3year?: string;
-  bc_5year?: string;
-  bc_7year?: string;
-  bc_10year?: string;
-  bc_20year?: string;
-  bc_30year?: string;
-  [k: string]: string | undefined;
-}
-
-/** Shape of `/tvmt/real_yield_curve` (TIPS). */
-export interface RealYieldCurvePoint {
-  new_date: string;
-  tc_5year?: string;
-  tc_10year?: string;
-  tc_20year?: string;
-  tc_30year?: string;
-  [k: string]: string | undefined;
-}
-
 // ---------- App state ----------
 
 export type Theme = 'light' | 'dark';
@@ -145,69 +92,4 @@ export interface UserSettings {
   theme: Theme;
   /** Hide matured holdings by default in the Holdings table. */
   hideMatured: boolean;
-  /** Cached timestamp of last successful Treasury API pull. */
-  lastRatesRefresh?: string;
-}
-
-export interface CachedRates {
-  fetchedAt: string;
-  /**
-   * True when ANY of yieldCurve / realYieldCurve / recentAuctions came
-   * from the synthetic fallback rather than the live Treasury Fiscal
-   * Data API. UI surfaces this as a global banner so the user can
-   * distinguish modeled reference values from real data — these values
-   * are NOT safe for trading or tax decisions.
-   *
-   * NOTE: As of 2026-07-03 the auctions feed is permanently synthetic
-   * (Treasury does not serve CORS + Workers cannot complete its TLS
-   * handshake). `rates-cache.tsx` therefore DERIVES this flag from
-   * `syntheticFeeds` excluding the `auctions` entry, so the global
-   * banner is suppressed for the auctions-only-synthetic case while
-   * still firing when yieldCurve / realYieldCurve fall back.
-   */
-  isSynthetic?: boolean;
-  /**
-   * Per-feed list of feeds currently on the synthetic fallback.
-   * Drives the global-banner skip condition (single-auctions-only-synth
-   * is hidden because auctions is a known permanent edge case).
-   */
-  syntheticFeeds?: Array<'auctions' | 'yieldCurve' | 'realYieldCurve'>;
-  /** When isSynthetic=true, message describing WHY live fetch failed. Cleared on next successful refresh. */
-  fallbackReason?: string;
-  /** Structured error category for context-aware UI messaging. */
-  errorKind?: FetchErrorKind;
-  /** Per (securityType, termMonths) -> yield %. */
-  yieldByTerm: Record<string, number>;
-  yieldByTermOverrides: Record<string, number>;
-  /** Latest yield curve points (nominal + real) for charts. */
-  yieldCurve: YieldCurvePoint[];
-  realYieldCurve: RealYieldCurvePoint[];
-  /** Recent auctions used for the Auctions page. */
-  recentAuctions: TreasuryAuction[];
-}
-
-export interface FedOutlookIndicator {
-  name: string;
-  value: string;
-  change: string;
-  trend: 'up' | 'down' | 'flat';
-  description: string;
-}
-
-export interface NewsItem {
-  title: string;
-  source: string;
-  publishedAt: string;
-  url: string;
-  summary: string;
-}
-
-export interface TreasuryEtf {
-  ticker: string;
-  name: string;
-  duration: 'Ultra-Short' | 'Short' | 'Intermediate' | 'Long';
-  ytdReturn: number; // %
-  yieldPct: number; // SEC yield, %
-  Sharpe: number;
-  riskScore: number; // 1-10 (lower = less risky)
 }

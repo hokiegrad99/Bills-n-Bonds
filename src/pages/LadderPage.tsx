@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import { Layers, RefreshCcw, Sparkles, Wand2 } from 'lucide-react';
+import { Layers, Sparkles, Wand2 } from 'lucide-react';
 import {
   Bar,
   BarChart,
@@ -12,7 +12,6 @@ import {
   YAxis,
 } from 'recharts';
 import { useHoldings } from '../lib/storage';
-import { useRates } from '../lib/rates-cache';
 import {
   cashFlowProjection,
   buildLadderSchedule,
@@ -65,7 +64,6 @@ function termChipAriaLabel(t: SecurityType, m: number): string {
 
 export function LadderPage() {
   const { holdings } = useHoldings();
-  const { lookup, refresh, loading, lastUpdated } = useRates();
 
   // Shared inputs
   const [budget, setBudget] = useState(50000);
@@ -86,13 +84,23 @@ export function LadderPage() {
       ) as Record<SecurityType, Set<number>>,
   );
 
+  /**
+   * Per-rung yield lookup. The app no longer fetches live Treasury/FRED
+   * data, so the ladder is fed by:
+   *   1. The user's PAGE-LOCAL override (values entered directly in the
+   *      ladder table — session-scoped, perfect for "what if" planning).
+   *   2. `suggestLadder` / `buildCustomLadder` apply a hard-coded fallback
+   *      when no override is set (see `lib/calc.ts`).
+   * Both layers are deterministic — no network, no jitter, suitable for
+   * repeated re-renders.
+   */
   const yieldsFor = useCallback(
     (type: SecurityType, m: number): number | null => {
       const k = `${type}:${m}`;
       if (k in overrides) return overrides[k];
-      return lookup(type, m);
+      return null;
     },
-    [lookup, overrides],
+    [overrides],
   );
 
   // Live cash-flow projection (from existing holdings)
@@ -126,10 +134,16 @@ export function LadderPage() {
     [mode, ladder, startAtMonth, monthStep],
   );
 
-  function setOverride(type: SecurityType, term: number, value: number) {
+  /**
+   * Apply a per-rung, session-local yield override. The values are kept
+   * in component state (NOT persisted to localStorage) so the ladder
+   * generator behaves as a pure "what-if" tool — refreshing the page
+   * resets to the reference yields in `lib/calc.ts`.
+   */
+  function applyOverride(type: SecurityType, term: number, value: number) {
     setOverrides((prev) => ({ ...prev, [`${type}:${term}`]: value }));
   }
-  function clearOverride(type: SecurityType, term: number) {
+  function dropOverride(type: SecurityType, term: number) {
     setOverrides((prev) => {
       const next = { ...prev };
       delete next[`${type}:${term}`];
@@ -145,16 +159,7 @@ export function LadderPage() {
   return (
     <div className="space-y-6">
       {/* Cash flow projection card */}
-      <Card
-        accent="accent"
-        eyebrow="Expected Cash Flow"
-        title="From your existing holdings"
-        action={
-          <button className="btn-secondary" onClick={refresh} disabled={loading}>
-            <RefreshCcw size={14} className={loading ? 'animate-spin' : ''} /> Refresh rates
-          </button>
-        }
-      >
+      <Card accent="accent" eyebrow="Expected Cash Flow" title="From your existing holdings">
         <div className="h-72">
           <ResponsiveContainer>
             <BarChart data={cf} margin={{ left: 0, right: 16, top: 8, bottom: 8 }}>
@@ -211,19 +216,7 @@ export function LadderPage() {
       </Card>
 
       {/* Ladder generator */}
-      <Card
-        accent="brand"
-        eyebrow="Tool"
-        title="Bond / Bill Ladder Generator"
-        action={
-          <span className="text-xs text-slate-500 dark:text-slate-400 inline-flex items-center gap-1">
-            <Sparkles size={12} />{' '}
-            {lastUpdated
-              ? `Yields cached ${lastUpdated.toLocaleString()}`
-              : 'Yields not yet fetched'}
-          </span>
-        }
-      >
+      <Card accent="brand" eyebrow="Tool" title="Bond / Bill Ladder Generator">
         {/* Mode toggle */}
         <div className="flex flex-wrap items-center gap-2 mb-4 border-b border-slate-100 dark:border-slate-800 pb-4">
           <button
@@ -379,20 +372,18 @@ export function LadderPage() {
             {mode === 'custom' ? (
               <>
                 The generator allocates budget equally across your selected
-                (type, term) pairs and looks up each yield from{' '}
-                <code className="font-mono">/tvmt/yield_curve</code> with TIPS
-                pulled from <code className="font-mono">/tvmt/real_yield_curve</code>.
-                Selections cache for 6 hours; click <em>Refresh rates</em> in the
-                top header to force a fresh pull.
+                (type, term) pairs. Yields come from any custom value you enter
+                in the table below — when blank, the generator uses a
+                hard-coded reference yield for that (type, term) bucket. Your
+                custom values are session-local and reset on page refresh.
               </>
             ) : (
               <>
-                The generator pulls Treasury yields from the Fiscal Data API
-                for each (security type, term) bucket via{' '}
-                <code className="font-mono">/tvmt/yield_curve</code> &amp;{' '}
-                <code className="font-mono">/tvmt/real_yield_curve</code> (with
-                CORS fallback proxies) and assigns estimated yields. Adjust any
-                number below to override.
+                The generator uses a hard-coded reference yield for each
+                (security type, term-months) bucket, and assigns them in
+                sequence to your staggered ladder. Adjust any number below to
+                override the reference yield for "what if" planning — your
+                edits live until you refresh.
               </>
             )}
           </div>
@@ -436,16 +427,16 @@ export function LadderPage() {
                           step={0.05}
                           className="input w-24 text-right tabular-nums"
                           value={(isOverride ? overrides[k] : r.estimatedYield).toFixed(2)}
-                          onChange={(e) => setOverride(r.securityType, r.termMonths, Number(e.target.value))}
+                          onChange={(e) => applyOverride(r.securityType, r.termMonths, Number(e.target.value))}
                         />
                       </td>
                       <td className="text-xs text-slate-500 dark:text-slate-400">
                         {isOverride ? (
-                          <button className="underline" onClick={() => clearOverride(r.securityType, r.termMonths)}>
+                          <button className="underline" onClick={() => dropOverride(r.securityType, r.termMonths)}>
                             custom (reset)
                           </button>
                         ) : (
-                          <span>API</span>
+                          <span>reference</span>
                         )}
                       </td>
                     </tr>

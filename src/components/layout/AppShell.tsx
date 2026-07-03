@@ -2,36 +2,26 @@ import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
   Wallet,
-  CalendarClock,
   Layers,
-  LineChart as LineChartIcon,
-  BookOpen,
   FileText,
   Sun,
   Moon,
-  RefreshCcw,
   Banknote,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useTheme } from './ThemeProvider';
-import { useRates } from '../../lib/rates-cache';
 import { cn } from '../../lib/cn';
-import { ApiFallbackBanner } from './ApiFallbackBanner';
 
 const NAV_ITEMS = [
   { to: '/', label: 'Dashboard', Icon: LayoutDashboard, end: true },
   { to: '/holdings', label: 'My Holdings', Icon: Wallet },
-  { to: '/auctions', label: 'Auction Calendar', Icon: CalendarClock },
   { to: '/ladder', label: 'Ladder Planner', Icon: Layers },
-  { to: '/yields', label: 'Yield Analytics', Icon: LineChartIcon },
-  { to: '/research', label: 'Research', Icon: BookOpen },
   { to: '/reports', label: 'Reports', Icon: FileText },
 ];
 
 export function AppShell() {
   const location = useLocation();
   const { theme, toggle } = useTheme();
-  const { lastUpdated, loading, refresh } = useRates();
   const [now, setNow] = useState(new Date());
 
   useEffect(() => {
@@ -116,26 +106,6 @@ export function AppShell() {
                   day: 'numeric',
                 })}
               </span>
-              <span>·</span>
-              <button
-                onClick={refresh}
-                disabled={loading}
-                className="inline-flex items-center gap-1.5 px-2 py-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800"
-                title={
-                  lastUpdated
-                    ? `Rates refreshed ${lastUpdated.toLocaleString()}`
-                    : 'Click to fetch latest rates'
-                }
-              >
-                <RefreshCcw size={12} className={loading ? 'animate-spin' : ''} />
-                <span>
-                  {loading
-                    ? 'Refreshing…'
-                    : lastUpdated
-                    ? `Rates ${relativeTime(lastUpdated)}`
-                    : 'Refresh rates'}
-                </span>
-              </button>
             </div>
             <button
               onClick={toggle}
@@ -178,27 +148,14 @@ export function AppShell() {
           </nav>
         </div>
 
-        <ApiFallbackBanner />
-
         <main className="flex-1 px-4 md:px-6 py-6">
           <Outlet />
         </main>
 
         <footer className="px-4 md:px-6 py-6 text-xs text-slate-500 dark:text-slate-400 border-t border-slate-200 dark:border-slate-800">
-          Data sourced from US Treasury Fiscal Data API where available. Estimates only —
-          confirm with official statements before filing taxes or making trades.
+          100% client-side · Your data and inputs never leave this device.
         </footer>
       </div>
     </div>
   );
-}
-
-function relativeTime(d: Date): string {
-  const diff = Date.now() - d.getTime();
-  const mins = Math.floor(diff / 60_000);
-  if (mins < 1) return 'just now';
-  if (mins < 60) return `${mins}m ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return `${Math.floor(hours / 24)}d ago`;
 }

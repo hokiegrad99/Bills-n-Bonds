@@ -6,10 +6,7 @@ A privacy-first, client-only tracker for **US Treasury Bills, Notes, Bonds, TIPS
 
 - **Dashboard** — KPI tiles, allocation donut, term-bucket bar chart, 12-month cash-flow projection, upcoming maturities, recent activity, scheduled reinvestments.
 - **My Holdings** — Full CRUD across all 16 spec fields (security type, institution, term, CUSIP, dates, face value, yield, interest, tax year, state-tax-exempt, status, auto-reinvest, notes…). Toggle hides matured holdings, search, type filter. Import / Export CSV with a copyable sample.
-- **Auction Calendar** — Pulls live data from the US Treasury Fiscal Data API (`/accounting/od/auction_query`). Toggle Upcoming / Recent, filter by Bill / Note / Bond / TIPS. Color-coded by type.
-- **Ladder Planner** — Cash-flow projection from your existing holdings, maturity calendar, and a Bill/Bond ladder generator. Yields come from `/tvmt/yield_curve` & `/tvmt/real_yield_curve` (cached locally, with per-rung overrides and a refresh button).
-- **Yield Analytics** — Active vs. matured summaries, weighted yield by type, 90-day trend from auctions, real-yield line for TIPS, and a CNBC-style reference table.
-- **Research** — Yield curve with overlaid TIPS real yields, curve evolution (2y vs 10y), CPI YoY timeline with Fed target reference, macro indicator list, ETF risk-reward scatter, news headlines and recommendations.
+- **Ladder Planner** — Cash-flow projection from your existing holdings, full maturity calendar, plus a Bill/Bond ladder generator with customise (pick any (type, term) pair) and Smart-stagger modes. Per-rung yields are editable inline for "what-if" planning; unset values fall back to hard-coded reference yields per (security type, term-months) bucket.
 - **Reports** — Standard export (CSV **and** PDF) with arbitrary filters, plus a **Tax Summary** mode that groups interest income into 1099-INT style totals separated by state-tax-exempt vs taxable.
 - 🌗 Dark / light theme toggle persisted to `localStorage`.
 - 💾 100% local data — stored under `bnb.*` keys; clear with browser dev tools if you ever want a clean slate.
@@ -84,47 +81,39 @@ src/
 ├── lib/
 │   ├── types.ts          Domain types + palette tokens
 │   ├── storage.tsx       React Context wrapping localStorage (holdings + settings)
-│   ├── rates-cache.tsx   React Context caching Treasury API responses (6h TTL)
 │   ├── sample-data.ts    One-time demo seeder
-│   ├── treasury-api.ts   Fiscal Data API client (with CORS-proxy fallback)
 │   ├── csv.ts            Parse + serialize holdings CSV
 │   ├── pdf.ts            jsPDF + autoTable builders
 │   ├── calc.ts           Date / interest math, cash flow, ladder planner
 │   ├── format.ts         i18n formatters (USD, %, dates)
 │   └── cn.ts             Tiny classnames util
 ├── components/
-│   ├── layout/           AppShell, ThemeProvider
-│   ├── ui/               KPICard, Card, Modal, TypeBadge, EmptyState, ToggleRow
+│   ├── layout/           AppShell (sidebar + topbar), ThemeProvider, ErrorBoundary
+│   ├── ui/               KPICard, Card, Modal, TypeBadge, EmptyState, ToggleRow, Toast
 │   ├── charts/           ChartTooltip (dark-aware)
 │   └── holdings/         HoldingForm, HoldingsTable, ImportDialog
-└── pages/                Dashboard, Holdings, Auctions, Ladder, Yields, Research, Reports
+└── pages/                Dashboard, Holdings, Ladder, Reports
 ```
-
-## Optional: bring back live data on GitHub Pages
-
-By default on GitHub Pages, the **Auctions** page is partially live (Treasury Fiscal Data hits CORS-permissive endpoints) but **Yields**, **Research** (yield curve, TIPS real curve, CPI updates, macro indicators), and **Live CPI** fall back to clearly-labeled *synthetic reference values* because the St. Louis Fed (FRED) API does not send `Access-Control-Allow-Origin` to direct browser fetches. To make every data source live, deploy the included Cloudflare Worker and plumb its URL into the build — still 100% on Cloudflare's free tier (~10 min, one-time setup):
-
-```bash
-cd workers/cors-proxy
-npm install
-npx wrangler login                                    # one-time browser auth
-npx wrangler secret put FRED_API_KEY                  # free key from fred.stlouisfed.org/docs/api/api_key.html
-npx wrangler deploy                                   # prints your worker URL
-```
-
-Then in your GitHub repo: **Settings → Secrets and variables → Actions → New repository secret**. Name: `VITE_CORS_PROXY_URL`. Value: the URL wrangler printed (no trailing slash). Push any commit — the next build picks it up automatically. See [`workers/cors-proxy/README.md`](workers/cors-proxy/README.md) for full details and sanity-check curls.
 
 ## Data sources
 
-| Page          | Source                                                                                  | Refresh         |
-| ------------- | --------------------------------------------------------------------------------------- | --------------- |
-| Auctions      | `api.fiscaldata.treasury.gov/.../auction_query`                                         | Manual button   |
-| Yield curve   | `api.fiscaldata.treasury.gov/.../tvmt/yield_curve`                                      | Auto (6h cache) |
-| TIPS real     | `api.fiscaldata.treasury.gov/.../tvmt/real_yield_curve`                                 | Auto (6h cache) |
-| CPI           | Hard-coded BLS CUUR0000SA0 snapshot through Dec-2024 (clearly labelled)                  | n/a             |
-| News/Recos    | Static curated list (clearly labelled as illustrative)                                  | n/a             |
+The app is **100% client-local**. Every page is computed directly from
+your own holdings stored in `localStorage`; there are no live Treasury,
+FRED, CPI, or news fetches anywhere in the source tree. Concretely:
 
-Direct fiscaldata treasury fetches hit CORS-permissive endpoints; if your network blocks them, the requests automatically fall back to `corsproxy.io` and `allorigins.win`.
+- **Yields / rates / market data** — manual. Ladder-generator
+  "what-if" yields are entered inline; unset values fall back to
+  hard-coded reference yields keyed on (security type, term-months).
+- **Tax summaries** — computed from your holding rows directly.
+- **Maturity calendar / cash flow** — computed from your `maturityDate`
+  columns.
+
+If you ever want to reconnect live data, the path is straightforward:
+deploy the included Cloudflare Worker (`workers/cors-proxy/`, currently
+idle on the free tier) that fronts FRED + Treasury with CORS +
+secret-injected API keys, then add the worker URL as a build-time env
+var. Until you take that step, leave the repo as-is — it works fully
+offline.
 
 ## License
 

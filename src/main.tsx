@@ -5,7 +5,6 @@ import App from './App';
 import './index.css';
 import { ThemeProvider } from './components/layout/ThemeProvider';
 import { HoldingsProvider } from './lib/storage';
-import { RatesProvider } from './lib/rates-cache';
 import { ToastProvider } from './components/ui/Toast';
 
 // Seed sample data the very first time a user opens the app, so they can try
@@ -19,13 +18,11 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
         "useHoldings must be used within a HoldingsProvider" at mount. */}
     <HoldingsProvider>
       <ThemeProvider>
-        <RatesProvider>
-          <ToastProvider>
-            <HashRouter>
-              <App />
-            </HashRouter>
-          </ToastProvider>
-        </RatesProvider>
+        <ToastProvider>
+          <HashRouter>
+            <App />
+          </HashRouter>
+        </ToastProvider>
       </ThemeProvider>
     </HoldingsProvider>
   </React.StrictMode>,
