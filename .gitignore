@@ -22,3 +22,6 @@ dist-ssr
 
 # Dependencies
 node_modules
+
+# TypeScript incremental build cache (rewritten on every `tsc -b` run)
+*.tsbuildinfo

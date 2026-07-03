@@ -275,6 +275,7 @@ export function HoldingsPage() {
         onImport={(rows) => {
           const count = importHoldings(rows);
           toast(`Imported ${count} holding${count === 1 ? '' : 's'}`, 'success');
+          return count;
         }}
       />
     </div>
