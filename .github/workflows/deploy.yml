@@ -37,7 +37,14 @@ jobs:
       - name: Type-check
         run: npm run typecheck
       - name: Build (output → dist/)
+        # Optional: set `VITE_CORS_PROXY_URL` as a repo secret to route
+        # Treasury + FRED calls through the Cloudflare Worker from
+        # workers/cors-proxy/. When unset, the build embeds an empty
+        # string and runtime fetches fall back to /treasury -> 404 ->
+        # synthetic data (still functional, just without live rates).
         run: npm run build
+        env:
+          VITE_CORS_PROXY_URL: ${{ secrets.VITE_CORS_PROXY_URL || '' }}
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

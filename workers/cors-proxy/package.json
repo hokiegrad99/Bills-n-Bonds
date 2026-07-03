@@ -1,0 +1,17 @@
+{
+  "name": "bills-n-bonds-cors-proxy",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Tiny Cloudflare Worker that fronts US Treasury + FRED with ACAO so the bills-n-bonds static site on GitHub Pages can read them.",
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "dev": "wrangler dev",
+    "secret:fred": "wrangler secret put FRED_API_KEY",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20240919.0",
+    "typescript": "^5.6.2",
+    "wrangler": "^3.78.0"
+  }
+}

@@ -40,13 +40,16 @@ export default defineConfig(({ mode }) => {
         '/fred': {
           target: 'https://api.stlouisfed.org',
           changeOrigin: true,
-        rewrite: (path) => {
-          const clean = path.replace(/^\/fred/, '');
-          if (clean.includes('api_key=')) return clean;
-          const sep = clean.includes('?') ? '&' : '?';
-          const key = env.VITE_FRED_API_KEY || '';
-          return key ? `${clean}${sep}api_key=${key}` : clean;
-        },
+          // FRED's real upstream URL IS `/fred/...` (e.g.
+          // `/fred/series/observations`, `/fred/series/search`);
+          // do NOT strip a leading `/fred`. We only inject the API
+          // key server-side so it never reaches the browser.
+          rewrite: (path) => {
+            if (path.includes('api_key=')) return path;
+            const sep = path.includes('?') ? '&' : '?';
+            const key = env.VITE_FRED_API_KEY || '';
+            return key ? `${path}${sep}api_key=${key}` : path;
+          },
         },
       },
     },

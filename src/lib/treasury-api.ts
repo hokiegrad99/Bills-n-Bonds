@@ -1,58 +1,85 @@
 import type { FetchErrorKind, RealYieldCurvePoint, TreasuryAuction, YieldCurvePoint } from './types';
 
-// Same-origin in dev (Vite proxies `/treasury/*` to api.fiscaldata.treasury.gov
-// in vite.config.ts — bypasses Treasury's missing ACAO on GET responses).
-// In production this path is only safe if the Cloudflare Worker fallback
-// (workers/cors-proxy/) is deployed + its URL pasted into `CORS_PROXY_URL`
-// below; otherwise `fetchJSON` will fall back to the synthetic data on
-// every Treasury request from a deployed build.
-const FISCAL_BASE = '/treasury';
+/**
+ * Optional Cloudflare Worker CORS-proxy URL, injected at build time via
+ * `VITE_CORS_PROXY_URL` (a GitHub Actions repo secret for Pages deploys,
+ * or a local `.env` entry during dev). When present, Treasury and FRED
+ * API calls are routed through the worker so they're CORS-permissive on
+ * GitHub Pages. Empty/undefined is the no-proxy default — Treasury/FRED
+ * rely on direct (likely-CORS-blocked-in-prod) fetches, and the per-
+ * request `?url=` fallback (`CORS_PROXY_URL` below) is disabled.
+ *
+ * Trailing slashes are normalised so `${base}/treasury` composes
+ * cleanly regardless of whether the secret ended in `/`.
+ */
+const CORS_PROXY_BASE: string = (import.meta.env.VITE_CORS_PROXY_URL ?? '').replace(/\/+$/, '');
 
-// FRED (St. Louis Fed) API base. In dev Vite proxies `/fred/*` to
-// api.stlouisfed.org and injects the API key (see vite.config.ts).
-// In production direct browser access is blocked by CORS, so the
-// Cloudflare Worker (workers/cors-proxy/) must be deployed with a
-// FRED_API_KEY secret and its URL set in `CORS_PROXY_URL` below.
+// Treasury Fiscal Data API base. In dev, Vite proxies `/treasury/*` to
+// api.fiscaldata.treasury.gov (bypasses Treasury's missing ACAO on
+// GET responses). In production, when the CORS-proxy URL is set,
+// routes through the worker for full live-data support. Without it on
+// Pages, the request hits a same-origin 404 and `fetchJSON` falls back
+// to the synthetic data — the prior behavior.
+const FISCAL_BASE = CORS_PROXY_BASE ? `${CORS_PROXY_BASE}/treasury` : '/treasury';
+
+// FRED (St. Louis Fed) API base.
+// Priority order:
+//   1. localhost → '/fred' (Vite dev proxy injects the API key from
+//      VITE_FRED_API_KEY without leaving the developer machine; even
+//      when CORS_PROXY_BASE is set in .env.local, dev traffic stays
+//      in-dev so the worker's free-tier quota isn't burned).
+//   2. CORS-proxy URL is set → `${base}/fred` (worker injects
+//      FRED_API_KEY from Cloudflare secret storage).
+//   3. otherwise → direct to api.stlouisfed.org (CORS-blocked in
+//      production, fetchJSON then falls back to synthetic data).
 function getFredBase(): string {
-  // Heuristic: if we're on localhost, assume the Vite dev proxy is active.
   if (
     typeof window !== 'undefined' &&
     (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
   ) {
     return '/fred';
   }
+  if (CORS_PROXY_BASE) return `${CORS_PROXY_BASE}/fred`;
   return 'https://api.stlouisfed.org';
 }
 const FRED_BASE = getFredBase();
 
 /**
  * Absolute upstream Treasury API base. Surfaced in error messages so the
- * diagnostic always names the *real* host + path the proxy eventually
- * reached (instead of the local `/treasury/*` path). With Vite's dev
- * proxy, `/treasury/foo` is rewritten to `<TREASURY_UPSTREAM>foo`; a
- * 404 here unambiguously means Treasury responded 404 — not that our
- * app made a malformed request. Public, no secrets.
+ * diagnostic always names the *real* host + path the gateway eventually
+ * reached (instead of the local `/treasury/*` path or proxy URL).
+ * A 404 here unambiguously means Treasury responded 404 — not that
+ * our app made a malformed request. Public, no secrets.
  */
 const TREASURY_UPSTREAM =
   'https://api.fiscaldata.treasury.gov/services/api/fiscal_service/v1';
 
-/** Absolute form of a Treasury URL — used only for error messages. */
+/**
+ * Absolute form of a Treasury URL — used only for error messages.
+ * Recognises BOTH the dev/prod-no-proxy same-origin `/treasury/...`
+ * form AND the worker-proxied `${base}/treasury/...` form so the
+ * surfaced upstream URL is always the real Treasury host.
+ */
 function absoluteTreasuryUrl(url: string): string {
-  if (url.startsWith('/treasury')) {
-    return TREASURY_UPSTREAM + url.replace(/^\/treasury/, '');
+  const prefixes = CORS_PROXY_BASE
+    ? ['/treasury', `${CORS_PROXY_BASE}/treasury`]
+    : ['/treasury'];
+  for (const prefix of prefixes) {
+    if (url.startsWith(prefix)) {
+      return TREASURY_UPSTREAM + url.slice(prefix.length);
+    }
   }
   return url;
 }
 
 /**
- * Self-hosted CORS proxy — a 12-line Cloudflare Worker living in
- * `workers/cors-proxy/`. After `npx wrangler deploy` prints your worker
- * URL, paste it here (with the trailing `?url=`) to opt into the
- * defensive fallback for environments where direct Treasury CORS is
- * denied (corp firewall, future API migration). Default empty so the
- * runtime never attempts DNS resolution against a placeholder hostname.
+ * Legacy per-request fallback URL prefix. Used by `fetchJSON` /
+ * `fetchFREDJSON` as a defensive backup when the primary upstream call
+ * throws a network error (CORS blocked, DNS fail, offline). Empty when
+ * no proxy is configured so the runtime never attempts DNS resolution
+ * against a placeholder hostname.
  */
-const CORS_PROXY_URL = '';
+const CORS_PROXY_URL = CORS_PROXY_BASE ? `${CORS_PROXY_BASE}/?url=` : '';
 
 /** Classifies an HTTP status into an error kind. */
 function classifyHttpError(status: number, url: string): FetchErrorKind {

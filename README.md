@@ -100,6 +100,20 @@ src/
 └── pages/                Dashboard, Holdings, Auctions, Ladder, Yields, Research, Reports
 ```
 
+## Optional: bring back live data on GitHub Pages
+
+By default on GitHub Pages, the **Auctions** page is partially live (Treasury Fiscal Data hits CORS-permissive endpoints) but **Yields**, **Research** (yield curve, TIPS real curve, CPI updates, macro indicators), and **Live CPI** fall back to clearly-labeled *synthetic reference values* because the St. Louis Fed (FRED) API does not send `Access-Control-Allow-Origin` to direct browser fetches. To make every data source live, deploy the included Cloudflare Worker and plumb its URL into the build — still 100% on Cloudflare's free tier (~10 min, one-time setup):
+
+```bash
+cd workers/cors-proxy
+npm install
+npx wrangler login                                    # one-time browser auth
+npx wrangler secret put FRED_API_KEY                  # free key from fred.stlouisfed.org/docs/api/api_key.html
+npx wrangler deploy                                   # prints your worker URL
+```
+
+Then in your GitHub repo: **Settings → Secrets and variables → Actions → New repository secret**. Name: `VITE_CORS_PROXY_URL`. Value: the URL wrangler printed (no trailing slash). Push any commit — the next build picks it up automatically. See [`workers/cors-proxy/README.md`](workers/cors-proxy/README.md) for full details and sanity-check curls.
+
 ## Data sources
 
 | Page          | Source                                                                                  | Refresh         |
