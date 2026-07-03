@@ -55,6 +55,7 @@ export function HoldingsTable({ holdings, onEdit, onDelete }: HoldingsTableProps
             <Th label="Type" k="securityType" sort={sort} setSort={setSort} />
             <Th label="Institution" k="institution" sort={sort} setSort={setSort} />
             <Th label="Term" k="termMonths" sort={sort} setSort={setSort} className="text-right" />
+            <Th label="Confirm #" k="securityType" sort={null} setSort={null} className="hidden md:table-cell" />
             <Th label="CUSIP" k="securityType" sort={null} setSort={null} className="hidden md:table-cell" />
             <Th label="Maturity" k="maturityDate" sort={sort} setSort={setSort} />
             <Th label="Face" k="faceValue" sort={sort} setSort={setSort} className="text-right" />
@@ -98,6 +99,9 @@ export function HoldingsTable({ holdings, onEdit, onDelete }: HoldingsTableProps
                 <td className="font-medium">{h.institution}</td>
                 <td className="text-right tabular-nums">{termLabel(h.termMonths)}</td>
                 <td className="hidden md:table-cell font-mono text-[11px] text-slate-500 dark:text-slate-400">
+                  {h.confirmNumber ?? '—'}
+                </td>
+                <td className="hidden md:table-cell font-mono text-[11px] text-slate-500 dark:text-slate-400">
                   {h.cusip ?? '—'}
                 </td>
                 <td className="tabular-nums">{fmtDateISO(h.maturityDate)}</td>
@@ -131,7 +135,7 @@ export function HoldingsTable({ holdings, onEdit, onDelete }: HoldingsTableProps
         </tbody>
         <tfoot>
           <tr className="bg-slate-50 dark:bg-slate-900/60 font-semibold">
-            <td colSpan={5} className="px-3 py-2">Total ({sorted.length} holding{sorted.length === 1 ? '' : 's'})</td>
+            <td colSpan={6} className="px-3 py-2">Total ({sorted.length} holding{sorted.length === 1 ? '' : 's'})</td>
             <td className="px-3 py-2 text-right tabular-nums">{fmtUSD(totalFace)}</td>
             <td></td>
             <td className="px-3 py-2 text-right tabular-nums">

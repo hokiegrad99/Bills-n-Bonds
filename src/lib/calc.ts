@@ -133,6 +133,14 @@ export interface PortfolioSummary {
   totalInterestEarned: number;
   totalInterestMTD: number;
   totalInterestYTD: number;
+  /**
+   * Count of holdings currently outstanding — includes BOTH `Active` and
+   * Pending (date-derived OR user-flagged) statuses. Both represent
+   * capital that is still awaiting its maturity date, so the Dashboard's
+   * "Active Holdings" KPI agrees numerically with `totalFaceValue`
+   * (which already includes Pending). Use `pendingCount` separately when
+   * a surface needs to distinguish "maturing within 7 days / flagged".
+   */
   activeCount: number;
   maturedCount: number;
   pendingCount: number;
@@ -179,7 +187,15 @@ export function summarize(holdings: Holding[], now: Date = new Date()): Portfoli
       yieldNumMatured += h.faceValue * h.highRate;
       yieldDenMatured += h.faceValue;
     } else if (eff === 'Pending') {
+      // Pending (date-derived within 7 days OR user-flagged) represents
+      // capital that is still awaiting maturity, so it counts as Active
+      // for the headline count and avgYieldActive. `pendingCount` is
+      // bumped separately so surfaces that want to surface "maturing
+      // soon" without re-deriving it can do so.
+      activeCount++;
       pendingCount++;
+      yieldNumActive += h.faceValue * h.highRate;
+      yieldDenActive += h.faceValue;
     }
 
     // Interest accrued falls on maturity date for bills & coupons.

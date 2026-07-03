@@ -93,7 +93,11 @@ export function DashboardPage() {
           value={fmtUSD(summary.totalFaceValue, { compact: true })}
           icon={Banknote}
           accent="brand"
-          hint={`${summary.activeCount} active · ${summary.maturedCount} matured`}
+          hint={
+            summary.pendingCount > 0
+              ? `${summary.activeCount} active (${summary.pendingCount} pending soon) · ${summary.maturedCount} matured`
+              : `${summary.activeCount} active · ${summary.maturedCount} matured`
+          }
         />
         <KPICard
           label="Interest — Month"

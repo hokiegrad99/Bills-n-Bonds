@@ -246,6 +246,37 @@ describe('Portfolio aggregations', () => {
       expect(s.maturedCount).toBe(1);
     });
 
+    it('counts Pending (date-derived or user-flagged) toward activeCount', () => {
+      // Regression: before this fix, the Dashboard "Active Holdings" KPI
+      // tallied only `Active` status, leaving it 3 short on a test import
+      // when 3 holdings had Pending status (date-derived within 7 days OR
+      // user-flagged). Pending still represents outstanding capital and
+      // is already included by `totalFaceValue`, so it should also count
+      // for `activeCount` and weight `avgYieldActive`. `pendingCount`
+      // remains available for surfaces that need to distinguish.
+      const today = new Date();
+      const in3Days = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 3);
+      const farPending = new Date(today.getFullYear() + 5, today.getMonth(), today.getDate());
+      const holdings = [
+        makeHolding({ maturityDate: '2099-12-31', faceValue: 10000, highRate: 5.0 }),
+        makeHolding({ id: 'near', maturityDate: toISODate(in3Days), faceValue: 7000, highRate: 4.0 }),
+        makeHolding({ id: 'flagged', status: 'Pending', maturityDate: toISODate(farPending), faceValue: 5000, highRate: 4.5 }),
+        makeHolding({ id: 'matured', maturityDate: '2020-01-01', faceValue: 8000, highRate: 3.0 }),
+      ];
+      const s = summarize(holdings);
+      // 1 Active + 2 Pending = 3 in the active bucket.
+      expect(s.activeCount).toBe(3);
+      expect(s.pendingCount).toBe(2);
+      expect(s.maturedCount).toBe(1);
+      // Face value includes Pending (matches activeCount semantics).
+      expect(s.totalFaceValue).toBe(22000);
+      // avgYieldActive is FACE-weighted across Active + Pending together.
+      expect(s.avgYieldActive).toBeCloseTo(
+        (10000 * 5.0 + 7000 * 4.0 + 5000 * 4.5) / 22000,
+        6,
+      );
+    });
+
     it('returns zeros for empty holdings', () => {
       const s = summarize([]);
       expect(s.totalFaceValue).toBe(0);

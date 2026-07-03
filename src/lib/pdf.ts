@@ -1,7 +1,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import type { Holding } from './types';
-import { fromISODate, isMatured, effectiveStatus } from './calc';
+import { fromISODate, effectiveStatus, summarize } from './calc';
 
 export interface ReportFilter {
   status?: Holding['status'] | 'all';
@@ -49,8 +49,12 @@ export function exportStandardPDF({ holdings, filter, meta }: BuildArgs): void {
     y += 14;
   }
 
-  // Portfolio summary
-  const totals = computeTotals(holdings);
+  // Portfolio summary — `summarize()` is the single source of truth
+  // for both the Dashboard KPIs and this PDF report, so the "Active
+  // Holdings" line can no longer drift from what the user sees on the
+  // web (e.g. by under-counting Pending). See `lib/calc.ts` for the
+  // exact rollup rules.
+  const totals = summarize(holdings);
   y += 10;
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(11);
@@ -58,13 +62,19 @@ export function exportStandardPDF({ holdings, filter, meta }: BuildArgs): void {
   y += 14;
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
-  doc.text(`Total Face Value: $${totals.face.toLocaleString()}`, margin, y);
-  doc.text(`Cost Basis: $${totals.cost.toLocaleString()}`, pageWidth / 2, y);
+  doc.text(`Total Face Value: $${totals.totalFaceValue.toLocaleString()}`, margin, y);
+  doc.text(`Cost Basis: $${totals.totalCostBasis.toLocaleString()}`, pageWidth / 2, y);
   y += 14;
-  doc.text(`Interest Earned: $${totals.interest.toLocaleString()}`, margin, y);
-  doc.text(`Active Holdings: ${totals.active}`, pageWidth / 2, y);
+  doc.text(`Interest Earned: $${totals.totalInterestEarned.toLocaleString()}`, margin, y);
+  doc.text(
+    totals.pendingCount > 0
+      ? `Active Holdings: ${totals.activeCount} (${totals.pendingCount} maturing soon)`
+      : `Active Holdings: ${totals.activeCount}`,
+    pageWidth / 2,
+    y,
+  );
   y += 14;
-  doc.text(`Matured Holdings: ${totals.matured}`, margin, y);
+  doc.text(`Matured Holdings: ${totals.maturedCount}`, margin, y);
   doc.text(`Average Yield (Active): ${totals.avgYieldActive.toFixed(2)}%`, pageWidth / 2, y);
   y += 22;
 
@@ -219,43 +229,4 @@ function addFooter(doc: jsPDF, pageWidth: number) {
     40,
     doc.internal.pageSize.getHeight() - 18,
   );
-}
-
-function computeTotals(holdings: Holding[]) {
-  const now = new Date();
-  let face = 0, cost = 0, interest = 0, active = 0, matured = 0;
-  let yieldNum = 0, yieldDen = 0;
-  for (const h of holdings) {
-    const eff = effectiveStatus(h, now);
-    // Match `summarize().totalFaceValue` in lib/calc.ts: both Matured
-    // and Sold holdings' principal has already been returned to the
-    // user, so neither should be counted toward "Total Face Value"
-    // on the PDF report.
-    if (eff !== 'Matured' && eff !== 'Sold') {
-      face += h.faceValue;
-    }
-    // Cost basis stays summed across every holding — it is the
-    // historical "money ever deployed" figure (tax-time convention),
-    // so we deliberately do NOT narrow it on the PDF either.
-    cost += h.purchasePrice;
-    interest += h.interestEarned;
-    if (eff === 'Active') {
-      active++;
-      yieldNum += h.faceValue * h.highRate;
-      yieldDen += h.faceValue;
-    } else if (eff === 'Matured') matured++;
-  }
-  return {
-    face,
-    cost,
-    interest,
-    active,
-    matured,
-    avgYieldActive: yieldDen ? yieldNum / yieldDen : 0,
-  };
-}
-
-// Utility used by callers needing the same predicate as the PDF.
-export function isMaturedByDate(h: Holding, refDate: Date = new Date()): boolean {
-  return isMatured(h, refDate);
 }
