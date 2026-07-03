@@ -7,6 +7,7 @@ import {
   Sun,
   Moon,
   Banknote,
+  PiggyBank,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useTheme } from './ThemeProvider';
@@ -16,6 +17,7 @@ const NAV_ITEMS = [
   { to: '/', label: 'Dashboard', Icon: LayoutDashboard, end: true },
   { to: '/holdings', label: 'My Holdings', Icon: Wallet },
   { to: '/ladder', label: 'Ladder Planner', Icon: Layers },
+  { to: '/savings-bonds', label: 'Savings Bonds', Icon: PiggyBank },
   { to: '/reports', label: 'Reports', Icon: FileText },
 ];
 

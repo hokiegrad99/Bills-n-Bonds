@@ -84,6 +84,42 @@ export interface Holding {
   updatedAt: string;
 }
 
+// ---------- Savings Bonds ----------
+
+/**
+ * US Savings Bonds (Series EE / Series I) — separate from marketable
+ * Holdings because they have no face value, no marketable CUSIP, and
+ * a different lifecycle (no broker purchase / sale). Lives in its own
+ * localStorage bucket (`bnb.savingsbonds.v1`) and its own page.
+ *
+ * Lifecycle reuses the existing HoldingStatus vocabulary so the UI
+ * vocabulary stays consistent: Active (still earning), Matured
+ * (past final maturity, typically 30 years for EE / I), Pending
+ * (manually flagged for imminent redemption), Sold (redeemed).
+ *
+ * `pod` ("Payable on Death" beneficiary) drives the page's primary
+ * grouping. Empty `pod` rows collect under a "No POD" heading at the
+ * end of the group list.
+ */
+export interface SavingsBond {
+  id: string;
+  /** Owning name or "Self" / "Joint" / "Trust" / etc. */
+  registration: string;
+  /** Payable-on-Death beneficiary. Used as the primary group-by on the page. */
+  pod: string;
+  confirmNumber?: string;
+  issueDate: string; // YYYY-MM-DD
+  /** Annual interest rate at issue (Series I has a fixed component + semiannual inflation adjustment). */
+  interestRate: number;
+  status: HoldingStatus;
+  /** Original face/issue amount in USD. */
+  amount: number;
+  /** Current redeemable value in USD. User-maintained (compounding handled outside this app). */
+  currentValue: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // ---------- App state ----------
 
 export type Theme = 'light' | 'dark';

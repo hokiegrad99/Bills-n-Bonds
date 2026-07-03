@@ -5,6 +5,7 @@ import App from './App';
 import './index.css';
 import { ThemeProvider } from './components/layout/ThemeProvider';
 import { HoldingsProvider } from './lib/storage';
+import { SavingsBondsProvider } from './lib/savings-storage';
 import { ToastProvider } from './components/ui/Toast';
 
 // Seed sample data the very first time a user opens the app, so they can try
@@ -19,9 +20,14 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     <HoldingsProvider>
       <ThemeProvider>
         <ToastProvider>
-          <HashRouter>
-            <App />
-          </HashRouter>
+          {/* SavingsBondsProvider sits alongside HoldingsProvider so the
+              two entities stay fully decoupled — each persists to its own
+              localStorage bucket and neither can clobber the other. */}
+          <SavingsBondsProvider>
+            <HashRouter>
+              <App />
+            </HashRouter>
+          </SavingsBondsProvider>
         </ToastProvider>
       </ThemeProvider>
     </HoldingsProvider>
