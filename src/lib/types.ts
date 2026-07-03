@@ -157,8 +157,21 @@ export interface CachedRates {
    * Data API. UI surfaces this as a global banner so the user can
    * distinguish modeled reference values from real data — these values
    * are NOT safe for trading or tax decisions.
+   *
+   * NOTE: As of 2026-07-03 the auctions feed is permanently synthetic
+   * (Treasury does not serve CORS + Workers cannot complete its TLS
+   * handshake). `rates-cache.tsx` therefore DERIVES this flag from
+   * `syntheticFeeds` excluding the `auctions` entry, so the global
+   * banner is suppressed for the auctions-only-synthetic case while
+   * still firing when yieldCurve / realYieldCurve fall back.
    */
   isSynthetic?: boolean;
+  /**
+   * Per-feed list of feeds currently on the synthetic fallback.
+   * Drives the global-banner skip condition (single-auctions-only-synth
+   * is hidden because auctions is a known permanent edge case).
+   */
+  syntheticFeeds?: Array<'auctions' | 'yieldCurve' | 'realYieldCurve'>;
   /** When isSynthetic=true, message describing WHY live fetch failed. Cleared on next successful refresh. */
   fallbackReason?: string;
   /** Structured error category for context-aware UI messaging. */

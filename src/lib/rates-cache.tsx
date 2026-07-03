@@ -117,14 +117,26 @@ export function RatesProvider({ children }: { children: React.ReactNode }) {
       const curveHistory = curveResult.history;
       const curveLatest = curveResult.latest;
       const computed = computeYieldByTerm(auctions, curveLatest, real);
+
+      // Per-feed list of which feeds are currently on synthetic fallback.
+      // The auctions feed is intentionally permanently synthetic (see
+      // fetchRecentAuctions TSDoc); we therefore DERIVE the global
+      // `isSynthetic` flag excluding auctions so the ApiFallbackBanner
+      // stops firing on every refresh.
+      const syntheticFeeds: Array<'auctions' | 'yieldCurve' | 'realYieldCurve'> = [];
+      if (auctionsResult.isSynthetic) syntheticFeeds.push('auctions');
+      if (curveResult.isSynthetic) syntheticFeeds.push('yieldCurve');
+      if (realResult.isSynthetic) syntheticFeeds.push('realYieldCurve');
+      const nonAuctionsSynthetic = syntheticFeeds.some((f) => f !== 'auctions');
+
       setRates((prev) => ({
         ...prev,
         fetchedAt: new Date().toISOString(),
-        // Surface a global banner if ANY of the three feeds came from the
-        // synthetic fallback. The banner copy calls this out loudly so
-        // users don't mistake modeled numbers for live data.
-        // Aggregate: surface banner if ANY of three feeds is synthetic; show first encountered upstream error message.
-        // Pick the most informative error kind. Priority: no-api-key > permanent > network > transient.
+        // Global banner fires only when yield curve or real yield curve
+        // (the user-visible live feeds) is synthetic. Auctions-only
+        // synthetic is silent because that case is permanent.
+        isSynthetic: nonAuctionsSynthetic,
+        syntheticFeeds,
         errorKind: pickWorstErrorKind([
           auctionsResult.errorKind,
           curveResult.errorKind,
@@ -134,10 +146,6 @@ export function RatesProvider({ children }: { children: React.ReactNode }) {
           auctionsResult.fallbackReason ||
           curveResult.fallbackReason ||
           realResult.fallbackReason,
-        isSynthetic:
-          auctionsResult.isSynthetic ||
-          curveResult.isSynthetic ||
-          realResult.isSynthetic,
         recentAuctions: auctions,
         yieldCurve: curveHistory,
         realYieldCurve: real,

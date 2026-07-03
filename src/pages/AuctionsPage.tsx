@@ -301,8 +301,10 @@ export function AuctionsPage() {
       </div>
 
       <div className="text-xs text-slate-500 dark:text-slate-400">
-        Source: US Treasury Fiscal Data API (auction_query endpoint). Cached for fast repeat
-        loads. Click the refresh button to pull the latest.
+        Source: modeled reference data (deterministic, anchored to today). The live Treasury
+        Fiscal Data feed is currently disabled at the application layer while the upstream
+        CORS policy + Cloudflare Workers\u2194Treasury TLS path are unavailable. Cached for fast
+        repeat loads. Click the refresh button to roll the auction schedule forward.
       </div>
     </div>
   );

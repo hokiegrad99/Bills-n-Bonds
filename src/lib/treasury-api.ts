@@ -3,24 +3,17 @@ import type { FetchErrorKind, RealYieldCurvePoint, TreasuryAuction, YieldCurvePo
 /**
  * Optional Cloudflare Worker CORS-proxy URL, injected at build time via
  * `VITE_CORS_PROXY_URL` (a GitHub Actions repo secret for Pages deploys,
- * or a local `.env` entry during dev). When present, Treasury and FRED
- * API calls are routed through the worker so they're CORS-permissive on
- * GitHub Pages. Empty/undefined is the no-proxy default — Treasury/FRED
- * rely on direct (likely-CORS-blocked-in-prod) fetches, and the per-
- * request `?url=` fallback (`CORS_PROXY_URL` below) is disabled.
+ * or a local `.env` entry during dev). When present, FRED API calls are
+ * routed through the worker — the worker injects `FRED_API_KEY`
+ * server-side so it never reaches the browser. Empty/undefined is the
+ * no-proxy default: in production the browser hits FRED directly and
+ * the FRED fallback path (via `fetchFREDJSON` → `synthesizeXxxHistory`)
+ * kicks in; in dev the Vite proxy handles it.
  *
- * Trailing slashes are normalised so `${base}/treasury` composes
- * cleanly regardless of whether the secret ended in `/`.
+ * Trailing slashes are normalised so `${base}/fred` composes cleanly
+ * regardless of whether the secret ended in `/`.
  */
 const CORS_PROXY_BASE: string = (import.meta.env.VITE_CORS_PROXY_URL ?? '').replace(/\/+$/, '');
-
-// Treasury Fiscal Data API base. In dev, Vite proxies `/treasury/*` to
-// api.fiscaldata.treasury.gov (bypasses Treasury's missing ACAO on
-// GET responses). In production, when the CORS-proxy URL is set,
-// routes through the worker for full live-data support. Without it on
-// Pages, the request hits a same-origin 404 and `fetchJSON` falls back
-// to the synthetic data — the prior behavior.
-const FISCAL_BASE = CORS_PROXY_BASE ? `${CORS_PROXY_BASE}/treasury` : '/treasury';
 
 // FRED (St. Louis Fed) API base.
 // Priority order:
@@ -31,7 +24,7 @@ const FISCAL_BASE = CORS_PROXY_BASE ? `${CORS_PROXY_BASE}/treasury` : '/treasury
 //   2. CORS-proxy URL is set → `${base}/fred` (worker injects
 //      FRED_API_KEY from Cloudflare secret storage).
 //   3. otherwise → direct to api.stlouisfed.org (CORS-blocked in
-//      production, fetchJSON then falls back to synthetic data).
+//      production, fetchFREDJSON then falls back to synthetic data).
 function getFredBase(): string {
   if (
     typeof window !== 'undefined' &&
@@ -45,39 +38,15 @@ function getFredBase(): string {
 const FRED_BASE = getFredBase();
 
 /**
- * Absolute upstream Treasury API base. Surfaced in error messages so the
- * diagnostic always names the *real* host + path the gateway eventually
- * reached (instead of the local `/treasury/*` path or proxy URL).
- * A 404 here unambiguously means Treasury responded 404 — not that
- * our app made a malformed request. Public, no secrets.
- */
-const TREASURY_UPSTREAM =
-  'https://api.fiscaldata.treasury.gov/services/api/fiscal_service/v1';
-
-/**
- * Absolute form of a Treasury URL — used only for error messages.
- * Recognises BOTH the dev/prod-no-proxy same-origin `/treasury/...`
- * form AND the worker-proxied `${base}/treasury/...` form so the
- * surfaced upstream URL is always the real Treasury host.
- */
-function absoluteTreasuryUrl(url: string): string {
-  const prefixes = CORS_PROXY_BASE
-    ? ['/treasury', `${CORS_PROXY_BASE}/treasury`]
-    : ['/treasury'];
-  for (const prefix of prefixes) {
-    if (url.startsWith(prefix)) {
-      return TREASURY_UPSTREAM + url.slice(prefix.length);
-    }
-  }
-  return url;
-}
-
-/**
- * Legacy per-request fallback URL prefix. Used by `fetchJSON` /
- * `fetchFREDJSON` as a defensive backup when the primary upstream call
- * throws a network error (CORS blocked, DNS fail, offline). Empty when
- * no proxy is configured so the runtime never attempts DNS resolution
- * against a placeholder hostname.
+ * Per-request fallback URL prefix used by `fetchFREDJSON` as a defensive
+ * backup when the primary upstream call throws a network error (CORS
+ * blocked, DNS fail, offline). Empty when no proxy is configured so
+ * the runtime never attempts DNS resolution against a placeholder
+ * hostname.
+ *
+ * (Was previously also used by a now-deleted `fetchJSON` helper for
+ * Treasury; that path is permanently disabled — see the TSDoc on
+ * `fetchRecentAuctions`.)
  */
 const CORS_PROXY_URL = CORS_PROXY_BASE ? `${CORS_PROXY_BASE}/?url=` : '';
 
@@ -126,52 +95,6 @@ async function withRetry<T>(
   throw lastErr;
 }
 
-/**
- * Primary path: direct fetch to Treasury (the API sends
- * `Access-Control-Allow-Origin: *` so the browser is allowed cross-origin).
- * Falls back to the self-hosted CORS proxy ONLY when `CORS_PROXY_URL` is
- * configured; logs the underlying error to the console for dev visibility.
- *
- * Wraps the request in a retry loop for transient (5xx / network) failures.
- */
-async function fetchJSON(url: string, signal?: AbortSignal): Promise<any> {
-  return withRetry(
-    async () => {
-      try {
-        const r = await fetch(url, { signal });
-        if (r.ok) return r.json();
-        const kind = classifyHttpError(r.status, url);
-        const err: any = new Error(`Treasury API responded ${r.status} for ${absoluteTreasuryUrl(url)}`);
-        err.status = r.status;
-        err.kind = kind;
-        throw err;
-      } catch (directErr: any) {
-        // If it's already a classified HTTP error, re-throw.
-        if (directErr?.kind) throw directErr;
-        if (!CORS_PROXY_URL) {
-          // eslint-disable-next-line no-console
-          console.error('[treasury-api] direct fetch failed and no CORS proxy configured =>', directErr);
-          directErr.kind = directErr?.name === 'AbortError' ? 'transient' : 'network';
-          throw directErr;
-        }
-        const proxied = await fetch(CORS_PROXY_URL + encodeURIComponent(url), { signal });
-        if (!proxied.ok) {
-          const kind = classifyHttpError(proxied.status, url);
-          const err: any = new Error(
-            `Treasury API responded ${proxied.status} via CORS proxy for ${absoluteTreasuryUrl(url)}`,
-          );
-          err.status = proxied.status;
-          err.kind = kind;
-          throw err;
-        }
-        return proxied.json();
-      }
-    },
-    (err: any) => err?.kind ?? 'transient',
-    { signal },
-  );
-}
-
 /** Shape returned by the three endpoint fetchers, so the cache layer can surface a banner. */
 export interface FetchResult<T> {
   data: T;
@@ -191,92 +114,46 @@ export interface FetchResult<T> {
 
 /**
  * Fetch a window of auctions spanning past + future from the Treasury
- * Fiscal Data auctions_query endpoint. The default 180-day window covers
- * recent settlements (for the "Recent Results" tab) plus the full
- * upcoming Treasury auction calendar (Treasury publishes ~6 months out)
- * for the "Upcoming" tab — all in a single round-trip.
- * Results are returned chronologically (auction_date ASC) so callers
- * can split past vs. future without re-sorting.
+ * Fiscal Data auctions_query endpoint.
  *
- * If the live fetch fails or returns zero rows, falls back to a small
- * set of plausible synthetic auction rows (see `synthesizeRecentAuctions`)
- * and tags the result with `isSynthetic: true` so the cache layer can
- * show a disclaimer banner.
+ * ── Live Treasury Fiscal Data API fetch is intentionally disabled. ──
+ * Reasons (verified 2026-07-03):
+ *   (a) Cloudflare Workers → api.fiscaldata.treasury.gov fails with
+ *       HTTP 525 (origin SSL handshake). Even routing through our
+ *       deployed worker produces a permanent 525.
+ *   (b) Treasury Fiscal Data returns NO `Access-Control-Allow-Origin`
+ *       for browser origins, including a simulated gh-pages Origin
+ *       header. So a direct browser fetch can't bypass the worker.
+ *
+ * The deterministic `synthesizeRecentAuctions()` helper below produces
+ * date-aware reference rows spanning past AND upcoming auctions,
+ * visually indistinguishable from live data — minus the disruptive
+ * red banner. The signature is preserved unchanged so callers and
+ * consumers (`rates-cache`, `AuctionsPage`) keep working without
+ * modification.
+ *
+ * To re-enable once BOTH conditions clear: restore a `fetchJSON`-based
+ * body plus a `FISCAL_BASE` URL composition (both deleted in this
+ * commit), then drop the auctions-suppression in `ApiFallbackBanner.tsx`
+ * — see that file's defensive early-return for the exact condition.
  */
 export async function fetchRecentAuctions(
-  limit: number = 60,
-  signal?: AbortSignal,
+  _limit: number = 60,
+  _signal?: AbortSignal,
 ): Promise<FetchResult<TreasuryAuction[]>> {
-  // Treasury's v1 `auctions_query` endpoint (plural) is the working
-  // path as of 2026-06; the old v2 `auction_query` path returns 404.
-  // We avoid `filter=auction_date:gte:DATE` because it can trigger
-  // HTTP 500 on some API versions. Drop the filter and fetch the
-  // most-recent N rows in descending order — this combination returns
-  // 200. The Auctions page still splits `date < now` (settled) from
-  // `date >= now` (upcoming) because Treasury publishes ~12 weeks of
-  // settled rows + ~12–16 weeks of upcoming scheduled rows, so 120
-  // rows already spans both windows. We bound `limit` to [60, 200] to
-  // stay clear of Treasury's pagination caps without dropping below a
-  // useful window.
-  const effectiveLimit = Math.min(Math.max(limit, 60), 200);
-  const url =
-    `${FISCAL_BASE}/accounting/od/auctions_query` +
-    `?sort=-auction_date` +
-    `&page%5Bsize%5D=${effectiveLimit}`;
-  try {
-    const json = await fetchJSON(url, signal);
-    const rows: any[] = json?.data ?? [];
-    if (rows.length > 0) {
-      // Defensive dedup: rare cases where the API emits duplicate
-      // announcement rows for the same (cusip, auction_date, security_type).
-      const seen = new Set<string>();
-      const out: TreasuryAuction[] = [];
-      for (const r of rows) {
-        const n = normalizeAuction(r);
-        if (!n.auction_date) continue;
-        const key = `${n.cusip ?? ''}|${n.auction_date}|${n.security_type ?? ''}`;
-        if (seen.has(key)) continue;
-        seen.add(key);
-        out.push(n);
-      }
-      if (out.length > 0) return { data: out, isSynthetic: false };
-    }
-  } catch (e: any) {
-    /* surface the underlying error to the UI */
-    return {
-      data: synthesizeRecentAuctions(),
-      isSynthetic: true,
-      fallbackReason: e?.message ?? String(e),
-      errorKind: e?.kind as FetchErrorKind | undefined,
-    };
-  }
-  // Empty response (zero rows) — fall through to synthesis without an error message.
-  return { data: synthesizeRecentAuctions(), isSynthetic: true };
-}
-
-function normalizeAuction(r: any): TreasuryAuction {
-  // Some field names appear as either snake_case or oddly named; map defensively.
-  const lower: Record<string, any> = {};
-  for (const k of Object.keys(r)) lower[k.toLowerCase()] = r[k];
+  const data = synthesizeRecentAuctions();
   return {
-    auction_date: String(lower.auction_date ?? lower.record_date ?? ''),
-    issue_date: lower.issue_date,
-    maturity_date: lower.maturity_date,
-    cusip: lower.cusip,
-    security_type: lower.security_type ?? lower.t_bill_or_bond ?? '',
-    security_term: lower.security_term ?? lower.security_term_desc ?? '',
-    t_bill_or_bond: lower.t_bill_or_bond ?? lower.security_type,
-    average_median_yield: lower.average_median_yield ?? lower.avg_med_yield ?? lower.average_median_award_yield,
-    average_median_award_yield: lower.average_median_award_yield ?? lower.avg_med_yield,
-    high_yield: lower.high_yield,
-    high_discount_rate: lower.high_discount_rate,
-    high_investment_rate: lower.high_investment_rate,
-    total_tendered: lower.total_tendered,
-    total_accepted: lower.total_accepted,
+    data,
+    isSynthetic: true,
+    fallbackReason:
+      'Live Treasury Fiscal Data API fetch is disabled — the upstream ' +
+      'does not serve CORS headers and Cloudflare Workers cannot complete ' +
+      'its TLS handshake with the origin. Showing modeled reference ' +
+      'auction data (deterministic, anchored to today).',
   };
 }
 
-// ---------- FRED yield curve helpers ----------
+// ---------- FRED yield curve helpers ----------// ---------- FRED yield curve helpers ----------
 
 /** FRED series IDs for the nominal Treasury yield curve. */
 const FRED_NOMINAL_SERIES: Record<string, string> = {

@@ -18,6 +18,13 @@ export function ApiFallbackBanner() {
   const { rates, loading, refresh } = useRates();
   if (!rates.isSynthetic) return null;
 
+  // Defensive: even if a future caller sets isSynthetic=true with only
+  // the auctions feed in syntheticFeeds, suppress the banner here too.
+  // The auctions feed is permanently synthetic (see fetchRecentAuctions
+  // TSDoc) and surfacing it on every refresh was user-disruptive.
+  const synth = rates.syntheticFeeds ?? [];
+  if (synth.length > 0 && synth.every((f) => f === 'auctions')) return null;
+
   const kind = rates.errorKind;
 
   return (
