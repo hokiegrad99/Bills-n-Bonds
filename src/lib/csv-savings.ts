@@ -9,18 +9,22 @@ export const SAVINGS_BOND_COLUMNS: { key: keyof SavingsBond | 'id'; header: stri
   { key: 'pod', header: 'POD' },
   { key: 'confirmNumber', header: 'Confirm #' },
   { key: 'issueDate', header: 'Issue Date' },
+  { key: 'maturityDate', header: 'Maturity Date' },
   { key: 'interestRate', header: 'Interest Rate (%)' },
   { key: 'status', header: 'Status' },
   { key: 'amount', header: 'Amount' },
   { key: 'currentValue', header: 'Current Value' },
 ];
 
+// Sample shown in the import dialog. Mirrors the TreasuryDirect export
+// format (US-style dates, $ / % formatting, extra columns) because that's
+// the real-world format users paste in — the parser accepts both this and
+// the canonical export format.
 export const SAVINGS_BOND_SAMPLE_CSV = [
-  SAVINGS_BOND_COLUMNS.map((c) => c.header).join(','),
-  'Self,Jane Smith,,2020-06-15,0.10,Active,500.00,540.00',
-  'Self,Jane Smith,,2015-03-01,0.20,Active,1000.00,1100.00',
-  'Joint,Jane Smith & John Smith,John Smith,2010-01-01,0.40,Active,5000.00,5800.00',
-  'Self,Trust FBO Children,,2005-11-30,1.20,Active,200.00,275.00',
+  'Registration,POD,Security Type,Confirm #,Issue Date,Maturity Date,Interest Rate,Status,Amount,Current Value',
+  'Self,,Series I Savings Bond,CF1234,11/1/2021,11/1/2051,3.34%,Active,$200.00,$245.28',
+  'Self,Jane Smith,Series I Savings Bond,CF2345,1/1/2026,1/1/2056,4.26%,Active,$500.00,$506.60',
+  'Joint,Jane Smith & John Smith,Series I Savings Bond,CF3456,4/1/2024,4/1/2054,4.44%,Active,"$1,000.00","$1,083.20"',
 ].join('\n');
 
 export function savingsBondsToCSV(bonds: SavingsBond[]): string {
@@ -44,6 +48,9 @@ function headerToKey(header: string): keyof SavingsBond | undefined {
   // Ambiguous aliases (e.g. plain "face" / "value") are deliberately
   // omitted so the parser fails loud rather than silently
   // mis-mapping a hand-authored CSV to the wrong column.
+  // TreasuryDirect exports also carry a "Security Type" column; the
+  // SavingsBond model has no field for it, so it maps to nothing here
+  // and is silently ignored by the parser.
   const map: Record<string, keyof SavingsBond> = {
     registration: 'registration',
     pod: 'pod',
@@ -52,6 +59,7 @@ function headerToKey(header: string): keyof SavingsBond | undefined {
     confirm: 'confirmNumber',
     confirmnumber: 'confirmNumber',
     issuedate: 'issueDate',
+    maturitydate: 'maturityDate',
     interestrate: 'interestRate',
     rate: 'interestRate',
     status: 'status',
@@ -81,8 +89,18 @@ export function parseSavingsBondsCSV(text: string): SavingsBondParseResult {
     for (const header of Object.keys(raw)) {
       const key = headerToKey(header);
       if (!key) continue;
-      const v = (raw as any)[header];
-      obj[key] = v === undefined ? '' : String(v).trim();
+      let v = (raw as any)[header];
+      v = v === undefined ? '' : String(v).trim();
+      // TreasuryDirect exports are human-formatted: currency reads
+      // "$1,000.00 ", rates carry a trailing "%", and dates are
+      // US-style M/D/YYYY. Normalize to plain numbers + ISO dates so
+      // the rest of the pipeline (validation, storage) stays clean.
+      if (key === 'interestRate' || key === 'amount' || key === 'currentValue') {
+        v = v.replace(/[$%,]/g, '').trim();
+      } else if (key === 'issueDate' || key === 'maturityDate') {
+        v = normalizeDate(v);
+      }
+      obj[key] = v;
     }
 
     const validation = validateRow(obj, idx + 2);
@@ -95,6 +113,19 @@ export function parseSavingsBondsCSV(text: string): SavingsBondParseResult {
   });
 
   return { rows, errors };
+}
+
+// Accepts the app's canonical YYYY-MM-DD plus the US-style M/D/YYYY
+// (or M-D-YYYY) that TreasuryDirect exports use. Anything else is
+// returned unchanged so the row validator flags it with a clear error.
+function normalizeDate(v: string): string {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
+  const m = v.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
+  if (m) {
+    const [, month, day, year] = m;
+    return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+  }
+  return v;
 }
 
 function validateRow(
@@ -121,6 +152,7 @@ function coerceRow(o: any): Omit<SavingsBond, 'id' | 'createdAt' | 'updatedAt'> 
     pod: o.pod ?? '',
     confirmNumber: o.confirmNumber || undefined,
     issueDate: o.issueDate,
+    maturityDate: o.maturityDate || undefined,
     interestRate: Number(o.interestRate) || 0,
     status: ['Active', 'Matured', 'Pending', 'Sold'].includes(o.status) ? o.status : 'Active',
     amount: Number(o.amount),

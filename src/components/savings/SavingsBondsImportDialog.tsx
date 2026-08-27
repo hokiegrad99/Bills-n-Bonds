@@ -48,6 +48,10 @@ export function SavingsBondsImportDialog({ open, onClose, onImport }: SavingsBon
                 <li key={c.header} className="font-mono">{c.header}</li>
               ))}
             </ul>
+            <p className="mt-2 text-[11px] text-slate-500 dark:text-slate-400">
+              TreasuryDirect exports work too — extra columns like Security Type and
+              Maturity Date are ignored, and $ / % / M/D/YYYY formatting is accepted.
+            </p>
           </div>
           <div className="card p-3 text-sm">
             <div className="label-eyebrow">Sample CSV</div>

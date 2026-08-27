@@ -12,6 +12,7 @@ const blank = () => ({
   pod: '',
   confirmNumber: '',
   issueDate: new Date().toISOString().slice(0, 10),
+  maturityDate: '',
   interestRate: 0,
   status: 'Active' as HoldingStatus,
   amount: 0,
@@ -46,6 +47,7 @@ export function SavingsBondForm({ initial, onSubmit, onCancel }: SavingsBondForm
       registration: form.registration.trim(),
       pod: form.pod.trim(),
       confirmNumber: form.confirmNumber?.trim() || undefined,
+      maturityDate: form.maturityDate?.trim() || undefined,
     });
   }
 
@@ -82,6 +84,15 @@ export function SavingsBondForm({ initial, onSubmit, onCancel }: SavingsBondForm
           value={form.issueDate}
           onChange={(e) => set('issueDate', e.target.value)}
         />
+      </Field>
+      <Field label="Maturity Date">
+        <input
+          type="date"
+          className="input"
+          value={form.maturityDate ?? ''}
+          onChange={(e) => set('maturityDate', e.target.value)}
+        />
+        <div className="text-[11px] text-slate-500 mt-1">Optional — typically 30 years after issue.</div>
       </Field>
       <Field label="Interest Rate (% APR)">
         <input

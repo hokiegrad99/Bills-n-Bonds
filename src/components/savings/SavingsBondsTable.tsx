@@ -19,7 +19,7 @@ interface SavingsBondsTableProps {
   onToggleSelect?: (id: string) => void;
 }
 
-type SortKey = 'registration' | 'issueDate' | 'interestRate' | 'amount' | 'currentValue' | 'status';
+type SortKey = 'registration' | 'issueDate' | 'maturityDate' | 'interestRate' | 'amount' | 'currentValue' | 'status';
 
 export function SavingsBondsTable({
   bonds,
@@ -64,6 +64,7 @@ export function SavingsBondsTable({
             <Th label="Registration" k="registration" sort={sort} setSort={setSort} />
             <Th label="Confirm #" k="registration" sort={null} setSort={null} className="hidden md:table-cell" />
             <Th label="Issue Date" k="issueDate" sort={sort} setSort={setSort} />
+            <Th label="Maturity" k="maturityDate" sort={sort} setSort={setSort} className="hidden md:table-cell" />
             <Th label="Rate" k="interestRate" sort={sort} setSort={setSort} className="text-right" />
             <Th label="Status" k="status" sort={sort} setSort={setSort} />
             <Th label="Amount" k="amount" sort={sort} setSort={setSort} className="text-right" />
@@ -100,6 +101,7 @@ export function SavingsBondsTable({
                 {b.confirmNumber ?? '—'}
               </td>
               <td className="tabular-nums">{fmtDateISO(b.issueDate)}</td>
+              <td className="hidden md:table-cell tabular-nums">{b.maturityDate ? fmtDateISO(b.maturityDate) : '—'}</td>
               <td className="text-right tabular-nums">{b.interestRate.toFixed(2)}%</td>
               <td>
                 <StatusPill status={b.status} />
@@ -125,7 +127,7 @@ export function SavingsBondsTable({
         </tbody>
         <tfoot>
           <tr className="bg-slate-50 dark:bg-slate-900/60 font-semibold">
-            <td colSpan={selectionEnabled ? 6 : 5} className="px-3 py-2">
+            <td colSpan={selectionEnabled ? 7 : 6} className="px-3 py-2">
               Subtotal ({sorted.length} bond{sorted.length === 1 ? '' : 's'})
             </td>
             <td className="px-3 py-2 text-right tabular-nums">{fmtUSD(totalAmount)}</td>

@@ -113,6 +113,8 @@ export interface SavingsBond {
   pod: string;
   confirmNumber?: string;
   issueDate: string; // YYYY-MM-DD
+  /** Final maturity date (YYYY-MM-DD) — typically 30 years after issue. Optional so legacy rows keep working. */
+  maturityDate?: string;
   /** Annual interest rate at issue (Series I has a fixed component + semiannual inflation adjustment). */
   interestRate: number;
   status: HoldingStatus;
