@@ -108,12 +108,10 @@ FRED, CPI, or news fetches anywhere in the source tree. Concretely:
 - **Maturity calendar / cash flow** — computed from your `maturityDate`
   columns.
 
-If you ever want to reconnect live data, the path is straightforward:
-deploy the included Cloudflare Worker (`workers/cors-proxy/`, currently
-idle on the free tier) that fronts FRED + Treasury with CORS +
-secret-injected API keys, then add the worker URL as a build-time env
-var. Until you take that step, leave the repo as-is — it works fully
-offline.
+If you ever want live market data, you'd need to add a CORS-permissive
+API layer (e.g. a small serverless proxy) and build-time env wiring
+from scratch — none of that exists in this repo today. As-is, the app
+works fully offline.
 
 ## License
 
