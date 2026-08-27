@@ -66,6 +66,41 @@ describe('parseSavingsBondsCSV — TreasuryDirect export format', () => {
   });
 });
 
+describe('parseSavingsBondsCSV — flexible date formats', () => {
+  function parseDate(date: string): string | undefined {
+    const csv = `Registration,Issue Date,Amount\nSelf,${date},100`;
+    const { rows, errors } = parseSavingsBondsCSV(csv);
+    expect(errors).toEqual([]);
+    return rows[0].issueDate;
+  }
+
+  it('accepts MM/DD/YYYY with leading zeros', () => {
+    expect(parseDate('11/01/2021')).toBe('2021-11-01');
+    expect(parseDate('01/05/2021')).toBe('2021-01-05');
+  });
+
+  it('accepts 2-digit years (MM/DD/YY)', () => {
+    expect(parseDate('11/1/21')).toBe('2021-11-01');
+    expect(parseDate('12/31/85')).toBe('1985-12-31');
+  });
+
+  it('accepts a trailing time component (Excel datetime cells)', () => {
+    expect(parseDate('11/1/2021 12:00:00 AM')).toBe('2021-11-01');
+    expect(parseDate('2021-11-01 00:00:00')).toBe('2021-11-01');
+    expect(parseDate('11/1/2021 2:30 PM')).toBe('2021-11-01');
+  });
+
+  it('accepts dash separators (M-D-YYYY)', () => {
+    expect(parseDate('11-1-2021')).toBe('2021-11-01');
+  });
+
+  it('still rejects genuinely malformed dates', () => {
+    const { rows, errors } = parseSavingsBondsCSV('Registration,Issue Date,Amount\nSelf,not-a-date,100');
+    expect(rows).toEqual([]);
+    expect(errors[0].message).toContain('Invalid Issue Date');
+  });
+});
+
 describe('parseSavingsBondsCSV — back-compat with the native format', () => {
   it('still accepts ISO dates and plain numbers (maturity optional)', () => {
     const native = [

@@ -115,17 +115,28 @@ export function parseSavingsBondsCSV(text: string): SavingsBondParseResult {
   return { rows, errors };
 }
 
-// Accepts the app's canonical YYYY-MM-DD plus the US-style M/D/YYYY
-// (or M-D-YYYY) that TreasuryDirect exports use. Anything else is
-// returned unchanged so the row validator flags it with a clear error.
+// Accepts the app's canonical YYYY-MM-DD plus US-style dates — M/D/YYYY,
+// MM/DD/YYYY, M/D/YY (2-digit years), with `/` or `-` separators, and an
+// optional trailing time component (e.g. Excel's "11/1/2021 12:00:00 AM").
+// Anything else is returned unchanged so the row validator flags it with
+// a clear error.
 function normalizeDate(v: string): string {
-  if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
-  const m = v.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
+  // Already ISO — optionally with a time component; keep the date part.
+  const iso = v.match(/^(\d{4}-\d{2}-\d{2})(?:[ T].*)?$/);
+  if (iso) return iso[1];
+  // US-style M/D/YYYY or M/D/YY.
+  const m = v.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})(?:[ T].*)?$/);
   if (m) {
-    const [, month, day, year] = m;
+    const [, month, day, yearRaw] = m;
+    const year = yearRaw.length === 2 ? fullYear(yearRaw) : yearRaw;
     return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
   }
   return v;
+}
+
+// Expand a 2-digit year to 4: 00-69 → 20xx, 70-99 → 19xx.
+function fullYear(yy: string): string {
+  return Number(yy) < 70 ? `20${yy}` : `19${yy}`;
 }
 
 function validateRow(
@@ -134,7 +145,7 @@ function validateRow(
 ): { row: number; message: string } | null {
   if (!o.registration) return { row: rowNumber, message: 'Missing Registration' };
   if (!o.issueDate || !/^\d{4}-\d{2}-\d{2}$/.test(String(o.issueDate)))
-    return { row: rowNumber, message: 'Invalid Issue Date (expected YYYY-MM-DD)' };
+    return { row: rowNumber, message: 'Invalid Issue Date (expected YYYY-MM-DD or MM/DD/YYYY)' };
   if (Number(o.amount) <= 0) return { row: rowNumber, message: 'Amount must be > 0' };
   if (Number(o.currentValue) < 0)
     return { row: rowNumber, message: 'Current Value cannot be negative' };
