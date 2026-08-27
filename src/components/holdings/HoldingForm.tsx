@@ -49,6 +49,8 @@ const TERM_PRESETS: Record<SecurityType, { months: number; label: string }[]> = 
 const blank = () => ({
   securityType: 'Bill' as SecurityType,
   institution: 'US Treasury (TreasuryDirect)',
+  registration: 'Self',
+  pod: '',
   termMonths: 3,
   confirmNumber: '',
   cusip: '',
@@ -107,12 +109,15 @@ export function HoldingForm({ initial, onSubmit, onCancel }: HoldingFormProps) {
     e.preventDefault();
     setError(null);
     if (!form.institution.trim()) return setError('Institution is required.');
+    if (!form.registration?.trim()) return setError('Registration is required.');
     if (form.faceValue <= 0) return setError('Face value must be greater than 0.');
     if (form.highRate < 0) return setError('Yield/rate must be 0 or greater.');
     if (!form.purchaseDate || !form.maturityDate) return setError('Purchase and maturity dates are required.');
 
     onSubmit({
       ...form,
+      registration: form.registration?.trim() || undefined,
+      pod: form.pod?.trim() || undefined,
       purchasePrice: form.purchasePrice || computedPurchasePrice(),
       interestEarned: form.interestEarned || Math.round(computedInterest * 100) / 100,
     });
@@ -154,6 +159,22 @@ export function HoldingForm({ initial, onSubmit, onCancel }: HoldingFormProps) {
           placeholder="US Treasury, Bank, Broker, etc."
           value={form.institution}
           onChange={(e) => set('institution', e.target.value)}
+        />
+      </Field>
+      <Field label="Registration">
+        <input
+          className="input"
+          placeholder='e.g. Self, Joint, "Trust FBO Children"'
+          value={form.registration ?? ''}
+          onChange={(e) => set('registration', e.target.value)}
+        />
+      </Field>
+      <Field label="POD (Payable on Death)">
+        <input
+          className="input"
+          placeholder="Beneficiary name (optional)"
+          value={form.pod ?? ''}
+          onChange={(e) => set('pod', e.target.value)}
         />
       </Field>
       <Field label="Term">

@@ -16,6 +16,9 @@ import { effectiveStatus } from '../lib/calc';
 import { holdingsToCSV } from '../lib/csv';
 import { useToast } from '../components/ui/Toast';
 
+// Sentinel key for holdings with no POD, sorted to the end of the group list.
+const NO_POD = '__no_pod__';
+
 export function HoldingsPage() {
   const {
     holdings,
@@ -79,12 +82,37 @@ export function HoldingsPage() {
       if (!q) return true;
       return (
         h.institution.toLowerCase().includes(q) ||
+        (h.registration ?? '').toLowerCase().includes(q) ||
+        (h.pod ?? '').toLowerCase().includes(q) ||
         (h.cusip ?? '').toLowerCase().includes(q) ||
         h.securityType.toLowerCase().includes(q) ||
         (h.notes ?? '').toLowerCase().includes(q)
       );
     });
   }, [holdings, settings.hideMatured, search, typeFilter]);
+
+  // Group the visible holdings by POD, sorted alphabetically with the
+  // empty-POD group last — mirrors the Savings Bonds page so the two
+  // pages share the same mental model.
+  const groups = useMemo(() => {
+    const map = new Map<string, Holding[]>();
+    for (const h of visible) {
+      const key = h.pod?.trim() || NO_POD;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(h);
+    }
+    return Array.from(map.entries())
+      .sort(([a], [b]) => {
+        if (a === NO_POD) return 1;
+        if (b === NO_POD) return -1;
+        return a.localeCompare(b);
+      })
+      .map(([key, items]) => ({
+        key,
+        label: key === NO_POD ? 'No POD' : key,
+        items,
+      }));
+  }, [visible]);
 
   function exportCSV() {
     const csv = holdingsToCSV(holdings);
@@ -168,6 +196,10 @@ export function HoldingsPage() {
           </div>
         }
       >
+        <p className="text-sm text-slate-600 dark:text-slate-300">
+          Holdings are grouped by Payable-on-Death beneficiary. Each group below is one POD —
+          holdings with no POD appear in a final “No POD” group.
+        </p>
         <div className="grid md:grid-cols-2 gap-4">
           <div className="flex items-center gap-2">
             <div className="relative flex-1">
@@ -201,8 +233,13 @@ export function HoldingsPage() {
         </div>
       </Card>
 
-      <Card accent="accent" eyebrow="Table" title="My Securities" bodyClassName="p-0">
-        {visible.length === 0 ? (
+      {visible.length === 0 ? (
+        <Card
+          accent="accent"
+          eyebrow="Table"
+          title={holdings.length === 0 ? 'No holdings yet' : 'No rows match your filters'}
+          bodyClassName="p-0"
+        >
           <div className="p-6">
             <EmptyState
               icon={<FilePlus2 size={20} />}
@@ -219,14 +256,18 @@ export function HoldingsPage() {
               }
             />
           </div>
-        ) : (
-          <HoldingsTable
-            holdings={visible}
-            onEdit={(h) => { setEditing(h); setShowForm(true); }}
-            onDelete={(h) => setConfirmDelete(h)}
-          />
-        )}
-      </Card>
+        </Card>
+      ) : (
+        groups.map((g) => (
+          <Card key={g.key} accent="accent" eyebrow="POD" title={g.label} bodyClassName="p-0">
+            <HoldingsTable
+              holdings={g.items}
+              onEdit={(h) => { setEditing(h); setShowForm(true); }}
+              onDelete={(h) => setConfirmDelete(h)}
+            />
+          </Card>
+        ))
+      )}
 
       {/* Add / Edit modal */}
       <Modal
@@ -263,8 +304,14 @@ export function HoldingsPage() {
             <div>
               You're about to permanently delete this{' '}
               <strong>{confirmDelete.securityType}</strong> holding at{' '}
-              <strong>{confirmDelete.institution}</strong> with face value{' '}
-              <strong>${confirmDelete.faceValue.toLocaleString()}</strong>.
+              <strong>{confirmDelete.institution}</strong>
+              {confirmDelete.registration && (
+                <>, owned by <strong>{confirmDelete.registration}</strong></>
+              )}
+              {confirmDelete.pod && (
+                <>, in the <strong>{confirmDelete.pod}</strong> POD group</>
+              )}
+              , with face value <strong>${confirmDelete.faceValue.toLocaleString()}</strong>.
             </div>
             <div className="flex justify-end gap-2 pt-2">
               <button className="btn-ghost" onClick={() => setConfirmDelete(null)}>

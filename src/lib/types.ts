@@ -64,6 +64,10 @@ export interface Holding {
   id: string;
   securityType: SecurityType;
   institution: string;
+  /** Named owner / registration of the holding (e.g. Self, Joint, "Trust FBO …"). Optional so legacy rows keep working. */
+  registration?: string;
+  /** Payable-on-Death beneficiary — secondary owner if the registered owner dies. Optional. */
+  pod?: string;
   /** Term in months (e.g. 1/4/8/13/26/52 for bills, 24/60/120/240/360 for notes/bonds/CDs). */
   termMonths: number;
   confirmNumber?: string;

@@ -15,6 +15,7 @@ interface HoldingsTableProps {
 type SortKey =
   | 'securityType'
   | 'institution'
+  | 'registration'
   | 'termMonths'
   | 'maturityDate'
   | 'faceValue'
@@ -54,6 +55,7 @@ export function HoldingsTable({ holdings, onEdit, onDelete }: HoldingsTableProps
           <tr>
             <Th label="Type" k="securityType" sort={sort} setSort={setSort} />
             <Th label="Institution" k="institution" sort={sort} setSort={setSort} />
+            <Th label="Registration" k="registration" sort={sort} setSort={setSort} className="hidden sm:table-cell" />
             <Th label="Term" k="termMonths" sort={sort} setSort={setSort} className="text-right" />
             <Th label="Confirm #" k="securityType" sort={null} setSort={null} className="hidden md:table-cell" />
             <Th label="CUSIP" k="securityType" sort={null} setSort={null} className="hidden md:table-cell" />
@@ -97,6 +99,9 @@ export function HoldingsTable({ holdings, onEdit, onDelete }: HoldingsTableProps
                   <TypeBadge type={h.securityType} />
                 </td>
                 <td className="font-medium">{h.institution}</td>
+                <td className="hidden sm:table-cell text-slate-600 dark:text-slate-300">
+                  {h.registration ?? '—'}
+                </td>
                 <td className="text-right tabular-nums">{termLabel(h.termMonths)}</td>
                 <td className="hidden md:table-cell font-mono text-[11px] text-slate-500 dark:text-slate-400">
                   {h.confirmNumber ?? '—'}
@@ -135,7 +140,7 @@ export function HoldingsTable({ holdings, onEdit, onDelete }: HoldingsTableProps
         </tbody>
         <tfoot>
           <tr className="bg-slate-50 dark:bg-slate-900/60 font-semibold">
-            <td colSpan={6} className="px-3 py-2">Total ({sorted.length} holding{sorted.length === 1 ? '' : 's'})</td>
+            <td colSpan={7} className="px-3 py-2">Subtotal ({sorted.length} holding{sorted.length === 1 ? '' : 's'})</td>
             <td className="px-3 py-2 text-right tabular-nums">{fmtUSD(totalFace)}</td>
             <td></td>
             <td className="px-3 py-2 text-right tabular-nums">

@@ -4,6 +4,8 @@ import type { Holding } from './types';
 export const HOLDING_COLUMNS: { key: keyof Holding | 'id'; header: string }[] = [
   { key: 'securityType', header: 'Security Type' },
   { key: 'institution', header: 'Institution' },
+  { key: 'registration', header: 'Registration' },
+  { key: 'pod', header: 'POD' },
   { key: 'termMonths', header: 'Term (Months)' },
   { key: 'confirmNumber', header: 'Confirm #' },
   { key: 'cusip', header: 'CUSIP' },
@@ -22,10 +24,10 @@ export const HOLDING_COLUMNS: { key: keyof Holding | 'id'; header: string }[] = 
 
 export const SAMPLE_CSV = [
   HOLDING_COLUMNS.map((c) => c.header).join(','),
-  'Bill,US Treasury,1,,912795XR4,2024-09-10,2024-10-10,10000,9965.00,5.25,35.00,2024,true,Active,false,Purchased at TreasuryDirect',
-  'Note,US Treasury,24,,91282CHU0,2024-06-15,2026-06-15,5000,4840.00,4.50,225.00,2025,false,Active,true,',
-  'TIPS,US Treasury,120,,91282CGK1,2024-04-15,2034-04-15,10000,9875.00,2.125,425.00,2034,true,Active,false,Inflation protection',
-  'CD,Chase Bank,12,,,2024-08-20,2025-08-20,25000,25000.00,4.75,1187.50,2025,false,Active,false,Brokered CD',
+  'Bill,US Treasury,Self,,1,,912795XR4,2024-09-10,2024-10-10,10000,9965.00,5.25,35.00,2024,true,Active,false,Purchased at TreasuryDirect',
+  'Note,US Treasury,Self,,24,,91282CHU0,2024-06-15,2026-06-15,5000,4840.00,4.50,225.00,2025,false,Active,true,',
+  'TIPS,US Treasury,Self,,120,,91282CGK1,2024-04-15,2034-04-15,10000,9875.00,2.125,425.00,2034,true,Active,false,Inflation protection',
+  'CD,Chase Bank,Self,,12,,,2024-08-20,2025-08-20,25000,25000.00,4.75,1187.50,2025,false,Active,false,Brokered CD',
 ].join('\n');
 
 export function holdingsToCSV(holdings: Holding[]): string {
@@ -47,6 +49,10 @@ function headerToKey(header: string): keyof Holding | undefined {
   const map: Record<string, keyof Holding> = {
     securitytype: 'securityType',
     institution: 'institution',
+    registration: 'registration',
+    pod: 'pod',
+    payableondeath: 'pod',
+    beneficiary: 'pod',
     term: 'termMonths',
     termmonths: 'termMonths',
     confirm: 'confirmNumber',
@@ -123,6 +129,8 @@ function coerceRow(o: any): Omit<Holding, 'id' | 'createdAt' | 'updatedAt'> {
   return {
     securityType: o.securityType,
     institution: o.institution,
+    registration: o.registration || undefined,
+    pod: o.pod || undefined,
     termMonths: Number(o.termMonths) || 0,
     confirmNumber: o.confirmNumber || undefined,
     cusip: o.cusip || undefined,
