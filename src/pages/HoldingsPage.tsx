@@ -14,10 +14,8 @@ import { EmptyState } from '../components/ui/EmptyState';
 import { Card } from '../components/ui/Card';
 import { effectiveStatus } from '../lib/calc';
 import { holdingsToCSV } from '../lib/csv';
+import { groupByPOD } from '../lib/grouping';
 import { useToast } from '../components/ui/Toast';
-
-// Sentinel key for holdings with no POD, sorted to the end of the group list.
-const NO_POD = '__no_pod__';
 
 export function HoldingsPage() {
   const {
@@ -93,26 +91,8 @@ export function HoldingsPage() {
 
   // Group the visible holdings by POD, sorted alphabetically with the
   // empty-POD group last — mirrors the Savings Bonds page so the two
-  // pages share the same mental model.
-  const groups = useMemo(() => {
-    const map = new Map<string, Holding[]>();
-    for (const h of visible) {
-      const key = h.pod?.trim() || NO_POD;
-      if (!map.has(key)) map.set(key, []);
-      map.get(key)!.push(h);
-    }
-    return Array.from(map.entries())
-      .sort(([a], [b]) => {
-        if (a === NO_POD) return 1;
-        if (b === NO_POD) return -1;
-        return a.localeCompare(b);
-      })
-      .map(([key, items]) => ({
-        key,
-        label: key === NO_POD ? 'No POD' : key,
-        items,
-      }));
-  }, [visible]);
+  // pages share the same mental model. Pure logic lives in lib/grouping.
+  const groups = useMemo(() => groupByPOD(visible), [visible]);
 
   function exportCSV() {
     const csv = holdingsToCSV(holdings);
