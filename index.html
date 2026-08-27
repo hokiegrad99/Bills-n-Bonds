@@ -11,15 +11,22 @@
     />
     <title>Bills n' Bonds — Treasury Portfolio Tracker</title>
 
-    <!-- Apply persisted theme BEFORE React mounts to avoid FOUC. -->
+    <!-- Apply persisted theme BEFORE React mounts to avoid FOUC.
+         The theme lives in bnb.settings.v1 ({ theme, hideMatured }); on
+         first visit fall back to the OS color-scheme preference. -->
     <script>
       (function () {
         try {
-          var stored = localStorage.getItem('bnb.theme');
+          var stored = localStorage.getItem('bnb.settings.v1');
           var prefersDark =
             window.matchMedia &&
             window.matchMedia('(prefers-color-scheme: dark)').matches;
-          var theme = stored || (prefersDark ? 'dark' : 'light');
+          var theme = 'light';
+          if (stored) {
+            theme = JSON.parse(stored).theme === 'dark' ? 'dark' : 'light';
+          } else if (prefersDark) {
+            theme = 'dark';
+          }
           if (theme === 'dark') {
             document.documentElement.classList.add('dark');
           } else {

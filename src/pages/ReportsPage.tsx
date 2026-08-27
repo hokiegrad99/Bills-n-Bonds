@@ -44,11 +44,14 @@ export function ReportsPage() {
   }, [holdings, filter]);
 
   const taxFiltered = useMemo(() => {
-    return holdings.filter((h) => filter.taxYear === 'all' ? false : h.taxYear === filter.taxYear);
+    return holdings.filter((h) => filter.taxYear === 'all' ? true : h.taxYear === filter.taxYear);
   }, [holdings, filter.taxYear]);
 
   function exportCSV() {
-    const csv = holdingsToCSV(filtered);
+    // Tax mode must respect the tax-year scope (taxFiltered), not the
+    // standard filters (filtered).
+    const rows = mode === 'tax' ? taxFiltered : filtered;
+    const csv = holdingsToCSV(rows);
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -95,7 +98,12 @@ export function ReportsPage() {
           </button>
           <button
             className={cn('pill-tab', mode === 'tax' && 'pill-tab-active')}
-            onClick={() => setMode('tax')}
+            onClick={() => {
+              setMode('tax');
+              // Tax summaries are per-year; a leftover "All years" from
+              // standard mode would silently empty the report.
+              setFilter((f) => (f.taxYear === 'all' ? { ...f, taxYear: new Date().getFullYear() } : f));
+            }}
           >
             <FileSpreadsheet size={14} /> Tax Summary
           </button>
@@ -168,12 +176,9 @@ export function ReportsPage() {
               <Field label="Tax Year">
                 <select
                   className="select"
-                  value={filter.taxYear}
-                  onChange={(e) =>
-                    setFilter({ ...filter, taxYear: e.target.value === 'all' ? 'all' : Number(e.target.value) })
-                  }
+                  value={filter.taxYear === 'all' ? new Date().getFullYear() : filter.taxYear}
+                  onChange={(e) => setFilter({ ...filter, taxYear: Number(e.target.value) })}
                 >
-                  <option value="all">All years</option>
                   {uniqueTaxYears(holdings).map((y) => (
                     <option key={y} value={y}>{y}</option>
                   ))}
