@@ -136,6 +136,42 @@ describe('parseHoldingsCSV — Registration/POD import', () => {
   });
 });
 
+// ---------- flexible date formats ----------
+
+describe('parseHoldingsCSV — flexible date formats', () => {
+  function parseDates(purchaseDate: string, maturityDate: string) {
+    const csv =
+      'Security Type,Institution,Purchase Date,Maturity Date,Face Value,Status\n' +
+      `Bill,US Treasury,${purchaseDate},${maturityDate},1000,Active`;
+    const { rows, errors } = parseHoldingsCSV(csv);
+    expect(errors).toEqual([]);
+    return { purchaseDate: rows[0].purchaseDate, maturityDate: rows[0].maturityDate };
+  }
+
+  it('accepts MM/DD/YYYY dates', () => {
+    expect(parseDates('11/01/2021', '11/01/2051')).toEqual({
+      purchaseDate: '2021-11-01',
+      maturityDate: '2051-11-01',
+    });
+  });
+
+  it('accepts 2-digit years and Excel time suffixes', () => {
+    expect(parseDates('11/1/21 12:00:00 AM', '2021-11-01 00:00:00')).toEqual({
+      purchaseDate: '2021-11-01',
+      maturityDate: '2021-11-01',
+    });
+  });
+
+  it('rejects genuinely malformed dates', () => {
+    const csv =
+      'Security Type,Institution,Purchase Date,Maturity Date,Face Value,Status\n' +
+      'Bill,US Treasury,not-a-date,2021-11-01,1000,Active';
+    const { rows, errors } = parseHoldingsCSV(csv);
+    expect(rows).toEqual([]);
+    expect(errors[0].message).toContain('Invalid Purchase Date');
+  });
+});
+
 // ---------- SAMPLE_CSV ----------
 
 describe('SAMPLE_CSV', () => {

@@ -33,6 +33,32 @@ export function todayISO(): string {
   return toISODate(new Date());
 }
 
+/**
+ * Accepts the app's canonical YYYY-MM-DD plus US-style dates — M/D/YYYY,
+ * MM/DD/YYYY, M/D/YY (2-digit years), with `/` or `-` separators, and an
+ * optional trailing time component (e.g. Excel's "11/1/2021 12:00:00 AM").
+ * Anything else is returned unchanged so the caller's validator can flag it
+ * with a clear error. Used by the CSV importers to normalize user data.
+ */
+export function normalizeDate(v: string): string {
+  // Already ISO — optionally with a time component; keep the date part.
+  const iso = v.match(/^(\d{4}-\d{2}-\d{2})(?:[ T].*)?$/);
+  if (iso) return iso[1];
+  // US-style M/D/YYYY or M/D/YY.
+  const m = v.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})(?:[ T].*)?$/);
+  if (m) {
+    const [, month, day, yearRaw] = m;
+    const year = yearRaw.length === 2 ? fullYear(yearRaw) : yearRaw;
+    return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+  }
+  return v;
+}
+
+// Expand a 2-digit year to 4: 00-69 → 20xx, 70-99 → 19xx.
+function fullYear(yy: string): string {
+  return Number(yy) < 70 ? `20${yy}` : `19${yy}`;
+}
+
 export function daysBetween(a: Date, b: Date): number {
   const ms = b.getTime() - a.getTime();
   return Math.round(ms / (1000 * 60 * 60 * 24));

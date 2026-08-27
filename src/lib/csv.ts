@@ -1,4 +1,5 @@
 import Papa from 'papaparse';
+import { normalizeDate } from './calc';
 import type { Holding } from './types';
 
 export const HOLDING_COLUMNS: { key: keyof Holding | 'id'; header: string }[] = [
@@ -96,8 +97,11 @@ export function parseHoldingsCSV(text: string): ParseResult {
     for (const header of Object.keys(raw)) {
       const key = headerToKey(header);
       if (!key) continue;
-      const v = (raw as any)[header];
-      obj[key] = v === undefined ? '' : String(v).trim();
+      let v = (raw as any)[header];
+      v = v === undefined ? '' : String(v).trim();
+      // Accept US-style M/D/YYYY (and variants) in addition to ISO dates.
+      if (key === 'purchaseDate' || key === 'maturityDate') v = normalizeDate(v);
+      obj[key] = v;
     }
 
     const validation = validateRow(obj, idx + 2); // row number including header
@@ -118,9 +122,9 @@ function validateRow(o: any, rowNumber: number): { row: number; message: string 
     return { row: rowNumber, message: `Invalid Security Type: ${o.securityType}` };
   if (!o.institution) return { row: rowNumber, message: 'Missing Institution' };
   if (!o.purchaseDate || !/^\d{4}-\d{2}-\d{2}$/.test(String(o.purchaseDate)))
-    return { row: rowNumber, message: 'Invalid Purchase Date (expected YYYY-MM-DD)' };
+    return { row: rowNumber, message: 'Invalid Purchase Date (expected YYYY-MM-DD or MM/DD/YYYY)' };
   if (!o.maturityDate || !/^\d{4}-\d{2}-\d{2}$/.test(String(o.maturityDate)))
-    return { row: rowNumber, message: 'Invalid Maturity Date (expected YYYY-MM-DD)' };
+    return { row: rowNumber, message: 'Invalid Maturity Date (expected YYYY-MM-DD or MM/DD/YYYY)' };
   if (Number(o.faceValue) <= 0) return { row: rowNumber, message: 'Face Value must be > 0' };
   return null;
 }
