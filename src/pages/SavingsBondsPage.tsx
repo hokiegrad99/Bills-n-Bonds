@@ -10,11 +10,9 @@ import { EmptyState } from '../components/ui/EmptyState';
 import { Card } from '../components/ui/Card';
 import { KPICard } from '../components/ui/KPICard';
 import { savingsBondsToCSV } from '../lib/csv-savings';
+import { groupByPOD } from '../lib/grouping';
 import { useToast } from '../components/ui/Toast';
 import { fmtUSD } from '../lib/format';
-
-// Sentinel key for bonds with no POD, sorted to the end of the group list.
-const NO_POD = '__no_pod__';
 
 export function SavingsBondsPage() {
   const {
@@ -118,26 +116,9 @@ export function SavingsBondsPage() {
   );
   const unrealized = totalCurrent - totalAmount;
 
-  // Group bonds by POD, sorted alphabetically with the empty-POD group last.
-  const groups = useMemo(() => {
-    const map = new Map<string, SavingsBond[]>();
-    for (const b of savingsBonds) {
-      const key = b.pod.trim() || NO_POD;
-      if (!map.has(key)) map.set(key, []);
-      map.get(key)!.push(b);
-    }
-    return Array.from(map.entries())
-      .sort(([a], [b]) => {
-        if (a === NO_POD) return 1;
-        if (b === NO_POD) return -1;
-        return a.localeCompare(b);
-      })
-      .map(([key, items]) => ({
-        key,
-        label: key === NO_POD ? 'No POD' : key,
-        bonds: items,
-      }));
-  }, [savingsBonds]);
+  // Group bonds by POD, sorted alphabetically with the empty-POD group
+  // last. Shared with the Holdings page via lib/grouping.
+  const groups = useMemo(() => groupByPOD(savingsBonds), [savingsBonds]);
 
   function exportCSV() {
     const csv = savingsBondsToCSV(savingsBonds);
@@ -275,7 +256,7 @@ export function SavingsBondsPage() {
               bodyClassName="p-0"
             >
               <SavingsBondsTable
-                bonds={g.bonds}
+                bonds={g.items}
                 onEdit={(b) => {
                   setEditing(b);
                   setShowForm(true);
