@@ -25,3 +25,6 @@ node_modules
 
 # TypeScript incremental build cache (rewritten on every `tsc -b` run)
 *.tsbuildinfo
+
+# Local data files (user's own spreadsheets)
+Import Savings Bond Inventory.csv
